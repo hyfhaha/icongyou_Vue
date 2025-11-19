@@ -1,0 +1,88 @@
+{
+	"pages": [
+		{
+			// 启动页：登录页
+			"path": "pages/index/LoginView",
+			"style": {
+				"navigationBarTitleText": "登录"
+			}
+		},
+		{
+			// 课程列表 (Tab)
+			"path": "pages/index/CourseListView",
+			"style": {
+				"navigationBarTitleText": "我的课程"
+			}
+		},
+		{
+			// 任务看板
+			"path": "pages/index/TaskKanbanView",
+			"style": {
+				"navigationBarTitleText": "任务看板"
+			}
+		},
+		{
+			// 任务详情
+			"path": "pages/index/TaskDetailView",
+			"style": {
+				"navigationBarTitleText": "任务详情"
+			}
+		},
+		{
+			// 提交作业
+			"path": "pages/index/SubmissionView",
+			"style": {
+				"navigationBarTitleText": "提交作业"
+			}
+		},
+		{
+			// 我的团队 (Tab)
+			"path": "pages/index/TeamView",
+			"style": {
+				"navigationBarTitleText": "我的团队"
+			}
+		},
+		{
+			// 个人中心 (Tab)
+			"path": "pages/index/ProfileView",
+			"style": {
+				"navigationBarTitleText": "个人中心"
+			}
+		}
+	],
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "爱从游",
+		"navigationBarBackgroundColor": "#FFFFFF",
+		"backgroundColor": "#F4F7FA",
+		// 关键：设置为 "custom" 以隐藏默认导航栏
+		"navigationStyle": "custom"
+	},
+	"tabBar": {
+		"color": "#888888",
+		"selectedColor": "#4C8AF2",
+		"backgroundColor": "#FFFFFF",
+		"borderStyle": "black",
+		"list": [
+			{
+				"pagePath": "pages/index/CourseListView",
+				"text": "课程",
+				"iconPath": "static/tabs/courses.png",
+				"selectedIconPath": "static/tabs/courses_active.png"
+			},
+			{
+				"pagePath": "pages/index/TeamView",
+				"text": "团队",
+				"iconPath": "static/tabs/team.png",
+				"selectedIconPath": "static/tabs/team_active.png"
+			},
+			{
+				"pagePath": "pages/index/ProfileView",
+				"text": "我的",
+				"iconPath": "static/tabs/profile.png",
+				"selectedIconPath": "static/tabs/profile_active.png"
+			}
+		]
+	},
+	"uniIdRouter": {}
+}

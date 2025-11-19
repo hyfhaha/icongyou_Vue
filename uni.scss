@@ -1,0 +1,28 @@
+/*
+ * uni-app 全局 SCSS 变量
+ * 替换您文件中无效的 tailwindcss 导入
+ * 这些变量可用于所有 .vue 文件的 <style lang="scss"> 块中
+ */
+
+/* 主题色 */
+$theme-color: #4C8AF2;
+$theme-gradient: linear-gradient(120deg, #6C5BFF, #4C8AF2);
+
+/* 背景色 */
+$bg-color: #F4F7FA;
+$card-bg: #FFFFFF;
+
+/* 文本颜色 */
+$text-color: #333333;
+$text-light: #888888;
+$text-reverse: #FFFFFF;
+
+/* 边框与阴影 */
+$border-color: #EAEAEA;
+$shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+
+/* 状态色 */
+$status-completed: #2ECC71;
+$status-submitted: #F39C12;
+$status-locked: #BDC3C7;
+$status-error: #E74C3C;
