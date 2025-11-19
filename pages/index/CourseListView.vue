@@ -195,9 +195,8 @@ const getProgressColor = (progress) => {
 
 const goToCourse = (courseId) => {
   console.log('Navigate to course:', courseId);
-  // [修复] 路径修改为 pages/index/TaskKanbanView
   uni.navigateTo({
-    url: `/pages/index/TaskKanbanView?courseId=${courseId}`
+    url: `/pages/index/CourseHomeView?courseId=${courseId}`
   });
 };
 </script>

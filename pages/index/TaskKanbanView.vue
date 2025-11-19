@@ -188,7 +188,7 @@ const goBack = () => {
 const openTask = (task) => {
   console.log('Open task:', task.id);
   uni.navigateTo({
-    url: `/pages/task/TaskDetail?taskId=${task.id}`
+    url: `/pages/index/TaskAnalyticsView?taskId=${task.id}`
   });
 };
 </script>

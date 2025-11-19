@@ -261,6 +261,6 @@ const submitWork = () => {
 }
 
 const goBack = () => {
-  console.log('Go back')
+  uni.navigateBack()
 }
 </script>

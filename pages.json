@@ -15,6 +15,13 @@
 			}
 		},
 		{
+			// 单课程个人主页
+			"path": "pages/index/CourseHomeView",
+			"style": {
+				"navigationBarTitleText": "课程总览"
+			}
+		},
+		{
 			// 任务看板
 			"path": "pages/index/TaskKanbanView",
 			"style": {
@@ -22,10 +29,31 @@
 			}
 		},
 		{
+			// 任务数据看板
+			"path": "pages/index/TaskAnalyticsView",
+			"style": {
+				"navigationBarTitleText": "任务数据看板"
+			}
+		},
+		{
 			// 任务详情
 			"path": "pages/index/TaskDetailView",
 			"style": {
 				"navigationBarTitleText": "任务详情"
+			}
+		},
+		{
+			// 优秀作业展示
+			"path": "pages/index/ExcellentWorksView",
+			"style": {
+				"navigationBarTitleText": "优秀作业"
+			}
+		},
+		{
+			// AI 互动讨论
+			"path": "pages/index/AITutorView",
+			"style": {
+				"navigationBarTitleText": "AI 互动"
 			}
 		},
 		{
@@ -47,6 +75,13 @@
 			"path": "pages/index/ProfileView",
 			"style": {
 				"navigationBarTitleText": "个人中心"
+			}
+		},
+		{
+			// 设置
+			"path": "pages/index/SettingsView",
+			"style": {
+				"navigationBarTitleText": "设置"
 			}
 		}
 	],

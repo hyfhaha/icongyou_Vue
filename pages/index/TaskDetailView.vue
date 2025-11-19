@@ -138,9 +138,14 @@
 					<text>提交作业</text>
 				</button>
 				
-				<button class="button-secondary">
+				<button class="button-secondary" @click="goAIHelper">
 					<uni-icons type="chatbubble-filled" size="20" color="#FFFFFF"></uni-icons>
 					<text>AI 助教答疑</text>
+				</button>
+				
+				<button class="button-outline" @click="goExcellentWorks">
+					<uni-icons type="heart" size="20" color="#4C8AF2"></uni-icons>
+					<text>查看优秀作业</text>
 				</button>
 			</view>
 		</scroll-view>
@@ -156,7 +161,19 @@ const openSubmitModal = () => {
 	console.log('Open submit modal');
 	// (US21) 导航到提交页面
 	uni.navigateTo({
-		url: '/pages/task/Submission?taskId=T4-1'
+		url: '/pages/index/SubmissionView?taskId=T4-1'
+	});
+};
+
+const goAIHelper = () => {
+	uni.navigateTo({
+		url: '/pages/index/AITutorView?taskId=T4-1'
+	});
+};
+
+const goExcellentWorks = () => {
+	uni.navigateTo({
+		url: '/pages/index/ExcellentWorksView?taskId=T4-1'
 	});
 };
 </script>
@@ -403,7 +420,7 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	flex-direction: column;
 	gap: 24rpx;
 	
-	.button-primary, .button-secondary {
+	.button-primary, .button-secondary, .button-outline {
 		width: 100%;
 		height: 96rpx;
 		border-radius: 20rpx;
@@ -429,6 +446,12 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 		background: linear-gradient(135deg, #A855F7, #EC4899);
 		color: white;
 		box-shadow: 0 8rpx 20rpx rgba(168, 85, 247, 0.3);
+	}
+
+	.button-outline {
+		border: 2rpx solid #4C8AF2;
+		color: #4C8AF2;
+		background: transparent;
 	}
 }
 </style>
