@@ -1,266 +1,287 @@
 <template>
-  <div class="min-h-screen bg-gray-50 pb-20">
-    <!-- Header -->
-    <header class="bg-white shadow-sm sticky top-0 z-20">
-      <div class="max-w-4xl mx-auto px-4 py-4">
-        <div class="flex items-center justify-between">
-          <button @click="goBack" class="p-2 hover:bg-gray-100 rounded-lg transition">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <h1 class="text-lg font-bold text-gray-800">提交团队作业</h1>
-          <div class="w-10"></div>
-        </div>
-      </div>
-    </header>
+	<view class="submission-page">
+		<view class="header-sticky">
+			<view class="header-content">
+				<view class="icon-button" @click="goBack">
+					<uni-icons type="left" size="24" color="#555555"></uni-icons>
+				</view>
+				<text class="header-title">提交团队作业</text>
+				<view class="icon-button"></view>
+			</view>
+		</view>
 
-    <div class="max-w-4xl mx-auto px-4 py-6 space-y-6">
-      <!-- Countdown Timer -->
-      <div class="bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl p-6 text-white shadow-xl">
-        <div class="text-center">
-          <p class="text-sm text-orange-100 mb-2">距离任务完成还剩</p>
-          <div class="text-4xl font-bold mb-1">372:30:46:194</div>
-          <p class="text-sm text-orange-100">天 : 时 : 分 : 秒</p>
-        </div>
-      </div>
+		<scroll-view scroll-y="true" class="page-scroll">
+			
+			<view class="countdown-card">
+				<text class="countdown-label">距离任务完成还剩</text>
+				<text class="countdown-timer">{{ taskInfo.deadlineStr }}</text>
+				<text class="countdown-unit">天 : 时 : 分 : 秒</text>
+			</view>
 
-      <!-- File Upload Section -->
-      <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
-        <div class="p-6">
-          <h3 class="text-lg font-bold text-gray-800 mb-2 flex items-center">
-            <svg class="w-5 h-5 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd" />
-            </svg>
-            上传文件
-          </h3>
-          <p class="text-sm text-gray-500 mb-4">
-            单文件大小不超过 <span class="font-medium text-red-500">100MB</span> 且支持 
-            <span class="font-medium">rar/mp4</span> 的文件
-          </p>
+			<view class="card-box">
+				<view class="card-title-row">
+					<uni-icons type="cloud-upload-filled" size="20" color="#4C8AF2"></uni-icons>
+					<text class="card-title">上传文件</text>
+				</view>
+				
+				<view class="upload-tips">
+					<text>单文件大小不超过 <text class="highlight-red">{{ taskInfo.maxFileSize }}MB</text> 且支持 <text class="highlight-bold">{{ taskInfo.allowedTypes.join('/') }}</text> 格式</text>
+				</view>
 
-          <!-- Upload Area -->
-          <div
-            @dragover.prevent
-            @drop.prevent="handleDrop"
-            class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 transition cursor-pointer"
-            @click="triggerFileInput"
-          >
-            <input
-              ref="fileInput"
-              type="file"
-              multiple
-              accept=".rar,.mp4"
-              @change="handleFileSelect"
-              class="hidden"
-            />
-            <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            <p class="text-gray-600 mb-2">点击上传或拖拽文件到这里</p>
-            <p class="text-sm text-gray-400">支持 .rar, .mp4 格式</p>
-          </div>
+				<view class="upload-area" @click="handleFileSelect">
+					<uni-icons type="folder-add" size="48" color="#CCCCCC"></uni-icons>
+					<text class="upload-text">点击选择文件上传</text>
+					<text class="upload-subtext">支持 .rar, .mp4 格式</text>
+				</view>
 
-          <!-- Uploaded Files List -->
-          <div v-if="uploadedFiles.length > 0" class="mt-4 space-y-2">
-            <div
-              v-for="(file, index) in uploadedFiles"
-              :key="index"
-              class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-            >
-              <div class="flex items-center flex-1">
-                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                  <svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd" />
-                  </svg>
-                </div>
-                <div class="flex-1">
-                  <p class="font-medium text-gray-800 text-sm">{{ file.name }}</p>
-                  <p class="text-xs text-gray-500">{{ formatFileSize(file.size) }}</p>
-                </div>
-              </div>
-              <button
-                @click="removeFile(index)"
-                class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
-              >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+				<view v-if="uploadedFiles.length > 0" class="file-list">
+					<view v-for="(file, index) in uploadedFiles" :key="index" class="file-item">
+						<view class="file-info-left">
+							<view class="file-icon">
+								<uni-icons type="paperclip" size="20" color="#4C8AF2"></uni-icons>
+							</view>
+							<view class="file-meta">
+								<text class="file-name">{{ file.name }}</text>
+								<text class="file-size">{{ formatFileSize(file.size) }}</text>
+							</view>
+						</view>
+						<view class="delete-btn" @click="subStore.removeFile(index)">
+							<uni-icons type="trash" size="20" color="#E74C3C"></uni-icons>
+						</view>
+					</view>
+				</view>
+			</view>
 
-      <!-- Team Contribution -->
-      <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
-        <div class="p-6">
-          <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
-            <svg class="w-5 h-5 mr-2 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
-            </svg>
-            团队成员贡献度
-          </h3>
+			<view class="card-box">
+				<view class="card-title-row">
+					<uni-icons type="staff-filled" size="20" color="#6C5BFF"></uni-icons>
+					<text class="card-title">团队成员贡献度</text>
+				</view>
 
-          <!-- Radar Chart Placeholder -->
-          <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 mb-4">
-            <div class="text-center">
-              <svg class="w-64 h-64 mx-auto" viewBox="0 0 200 200">
-                <!-- Radar background -->
-                <polygon
-                  points="100,20 172,60 172,140 100,180 28,140 28,60"
-                  fill="#e0e7ff"
-                  stroke="#6366f1"
-                  stroke-width="1"
-                  opacity="0.3"
-                />
-                <polygon
-                  points="100,50 150,75 150,125 100,150 50,125 50,75"
-                  fill="#c7d2fe"
-                  stroke="#6366f1"
-                  stroke-width="1"
-                  opacity="0.3"
-                />
-                <!-- Radar data -->
-                <polygon
-                  points="100,30 160,70 150,130 90,160 40,120 50,65"
-                  fill="#6366f1"
-                  stroke="#4f46e5"
-                  stroke-width="2"
-                  opacity="0.5"
-                />
-                <!-- Labels -->
-                <text x="100" y="15" text-anchor="middle" class="text-xs fill-gray-700">本分配</text>
-                <text x="180" y="65" text-anchor="start" class="text-xs fill-gray-700">协同配合</text>
-                <text x="180" y="145" text-anchor="start" class="text-xs fill-gray-700">个体贡献</text>
-                <text x="100" y="195" text-anchor="middle" class="text-xs fill-gray-700">责任承担</text>
-                <text x="20" y="145" text-anchor="end" class="text-xs fill-gray-700">冲突化解</text>
-                <text x="20" y="65" text-anchor="end" class="text-xs fill-gray-700">任务完成</text>
-              </svg>
-              <p class="text-sm text-gray-600 mt-2">
-                任务: <span class="font-medium text-blue-600">T4-1爱从游（学生移动端）</span>
-              </p>
-            </div>
-          </div>
+				<view class="charts-box">
+					<qiun-data-charts 
+						type="radar"
+						:opts="chartOpts"
+						:chartData="radarChartData"
+					/>
+				</view>
 
-          <!-- Contribution Sliders -->
-          <div class="space-y-4">
-            <div
-              v-for="member in teamMembers"
-              :key="member.id"
-              class="space-y-2"
-            >
-              <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                  <div class="w-8 h-8 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-full flex items-center justify-center text-white text-xs font-bold mr-2">
-                    {{ member.name.charAt(0) }}
-                  </div>
-                  <span class="font-medium text-gray-800 text-sm">{{ member.name }}</span>
-                </div>
-                <div class="flex items-center space-x-2">
-                  <button
-                    @click="decreaseContribution(member.id)"
-                    class="w-6 h-6 bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center transition"
-                  >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
-                    </svg>
-                  </button>
-                  <span class="w-8 text-center font-bold text-blue-600">{{ member.contribution }}</span>
-                  <button
-                    @click="increaseContribution(member.id)"
-                    class="w-6 h-6 bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center transition"
-                  >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              <div class="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  :style="{ width: (member.contribution / totalContribution * 100) + '%' }"
-                  class="h-full bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full transition-all duration-300"
-                ></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+				<view class="member-list">
+					<view v-for="member in teamMembers" :key="member.id" class="member-row">
+						<view class="member-header">
+							<view class="member-info">
+								<view class="avatar-circle">
+									<text>{{ member.name.charAt(0) }}</text>
+								</view>
+								<text class="member-name">{{ member.name }}</text>
+							</view>
+							
+							<view class="contribution-control">
+								<view class="ctrl-btn" @click="userStore.updateContribution(member.id, -1)">
+									<uni-icons type="minus" size="14" color="#555"></uni-icons>
+								</view>
+								<text class="score-text">{{ member.contribution }}</text>
+								<view class="ctrl-btn" @click="userStore.updateContribution(member.id, 1)">
+									<uni-icons type="plus" size="14" color="#555"></uni-icons>
+								</view>
+							</view>
+						</view>
+						
+						<view class="progress-track">
+							<view 
+								class="progress-bar" 
+								:style="{ width: (member.contribution / totalContribution * 100) + '%' }"
+							></view>
+						</view>
+					</view>
+				</view>
+			</view>
 
-      <!-- Submit Button -->
-      <button
-        @click="submitWork"
-        :disabled="uploadedFiles.length === 0"
-        class="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:cursor-not-allowed"
-      >
-        提交团队作业
-      </button>
-    </div>
-  </div>
+			<view class="footer-action">
+				<button 
+					class="submit-button" 
+					:disabled="uploadedFiles.length === 0 || isSubmitting"
+					:class="{ disabled: uploadedFiles.length === 0 || isSubmitting }"
+					@click="handleSubmit"
+				>
+					{{ isSubmitting ? '提交中...' : '提交团队作业' }}
+				</button>
+			</view>
+		</scroll-view>
+	</view>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { onMounted, ref, computed } from 'vue';
+import { storeToRefs } from 'pinia';
+// 引入两个 Store
+import { useUserStore } from '@/store/userStore';
+import { useSubmissionStore } from '@/store/submissionStore';
 
-const fileInput = ref(null)
-const uploadedFiles = ref([])
+// 初始化 Store
+const userStore = useUserStore();
+const subStore = useSubmissionStore();
 
-const teamMembers = ref([
-  { id: 1, name: '张三', contribution: 0 },
-  { id: 2, name: '李四', contribution: 0 },
-  { id: 3, name: '王五', contribution: 0 },
-  { id: 4, name: '赵六', contribution: 0 }
-])
+// 1. 从 userStore 获取团队成员 (数据源头)
+const { teamMembers } = storeToRefs(userStore);
 
+// 2. 从 submissionStore 获取文件和任务信息
+const { uploadedFiles, isSubmitting, taskInfo } = storeToRefs(subStore);
+
+// 计算总贡献 (用于进度条分母)
 const totalContribution = computed(() => {
-  return teamMembers.value.reduce((sum, member) => sum + member.contribution, 0)
-})
+  const total = teamMembers.value.reduce((sum, m) => sum + m.contribution, 0);
+  return total === 0 ? 1 : total;
+});
 
-const triggerFileInput = () => {
-  fileInput.value?.click()
-}
+// uCharts 雷达图数据 (自动响应 teamMembers 的变化)
+const radarChartData = computed(() => {
+  return {
+    categories: teamMembers.value.map(m => m.name),
+    series: [{
+      name: "贡献度",
+      data: teamMembers.value.map(m => m.contribution)
+    }]
+  };
+});
 
-const handleFileSelect = (event) => {
-  const files = Array.from(event.target.files)
-  uploadedFiles.value.push(...files)
-}
+// uCharts 配置项
+const chartOpts = ref({
+  color: ["#4C8AF2"],
+  padding: [5, 5, 5, 5],
+  dataLabel: false,
+  legend: { show: false },
+  extra: {
+    radar: {
+      gridType: "circle",
+      gridColor: "#EAEAEA",
+      max: 100,
+      labelColor: "#666666",
+      border: true
+    }
+  }
+});
 
-const handleDrop = (event) => {
-  const files = Array.from(event.dataTransfer.files)
-  uploadedFiles.value.push(...files)
-}
+// 处理文件选择
+const handleFileSelect = () => {
+  uni.showActionSheet({
+    itemList: ['选择文件 (模拟)'],
+    success: () => {
+      // 模拟添加文件
+      subStore.addFile({
+        name: `Project_Source_${uploadedFiles.value.length + 1}.rar`,
+        size: 1024 * 1024 * (Math.random() * 5 + 1)
+      });
+    }
+  });
+};
 
-const removeFile = (index) => {
-  uploadedFiles.value.splice(index, 1)
-}
-
+// 格式化文件大小
 const formatFileSize = (bytes) => {
-  if (bytes === 0) return '0 Bytes'
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
-}
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+};
 
-const increaseContribution = (memberId) => {
-  const member = teamMembers.value.find(m => m.id === memberId)
-  if (member) member.contribution++
-}
+// 提交处理
+const handleSubmit = async () => {
+  try {
+    await subStore.submitWork();
+    uni.showToast({ title: '提交成功', icon: 'success' });
+    setTimeout(() => uni.navigateBack(), 1500);
+  } catch (e) {
+    uni.showToast({ title: e, icon: 'none' });
+  }
+};
 
-const decreaseContribution = (memberId) => {
-  const member = teamMembers.value.find(m => m.id === memberId)
-  if (member && member.contribution > 0) member.contribution--
-}
-
-const submitWork = () => {
-  console.log('Submit work:', {
-    files: uploadedFiles.value,
-    contributions: teamMembers.value
-  })
-}
-
-const goBack = () => {
-  uni.navigateBack()
-}
+const goBack = () => uni.navigateBack();
 </script>
+
+<style lang="scss" scoped>
+/* SCSS 变量 */
+$bg-color: #F4F7FA;
+$card-bg: #FFFFFF;
+$text-color: #333333;
+$text-light: #888888;
+$theme-color: #4C8AF2;
+$theme-gradient: linear-gradient(135deg, #4C8AF2, #6C5BFF);
+$shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+$border-color: #EAEAEA;
+
+.submission-page {
+	display: flex; flex-direction: column; height: 100vh; background-color: $bg-color;
+}
+
+/* 头部吸附 */
+.header-sticky {
+	position: sticky; top: 0; z-index: 20; background: #FFFFFF; box-shadow: $shadow;
+}
+.header-content {
+	display: flex; align-items: center; justify-content: space-between; padding: 0 24rpx; height: 88rpx;
+}
+.icon-button { width: 80rpx; height: 80rpx; display: flex; align-items: center; justify-content: center; }
+.header-title { font-size: 34rpx; font-weight: bold; color: $text-color; }
+
+.page-scroll { flex: 1; height: 0; padding: 30rpx; box-sizing: border-box; padding-bottom: 60rpx; }
+
+/* 倒计时 */
+.countdown-card {
+	background: linear-gradient(135deg, #F97316, #EF4444); border-radius: 24rpx; padding: 40rpx; color: white; text-align: center; box-shadow: 0 10rpx 30rpx rgba(249, 115, 22, 0.3);
+}
+.countdown-label { font-size: 26rpx; opacity: 0.9; margin-bottom: 10rpx; display: block; }
+.countdown-timer { font-size: 52rpx; font-weight: bold; margin: 10rpx 0; font-family: monospace; display: block; }
+.countdown-unit { font-size: 24rpx; opacity: 0.8; }
+
+/* 通用卡片 */
+.card-box { background: $card-bg; border-radius: 24rpx; padding: 30rpx; box-shadow: $shadow; margin-top: 30rpx; }
+.card-title-row { display: flex; align-items: center; gap: 16rpx; margin-bottom: 30rpx; }
+.card-title { font-size: 32rpx; font-weight: bold; color: $text-color; }
+
+/* 上传区 */
+.upload-tips { font-size: 24rpx; color: $text-light; margin-bottom: 20rpx; }
+.highlight-red { color: #E74C3C; font-weight: bold; }
+.highlight-bold { font-weight: bold; color: $text-color; }
+
+.upload-area {
+	background: #FAFAFA; border: 2rpx dashed $border-color; border-radius: 20rpx; padding: 50rpx; display: flex; flex-direction: column; align-items: center; gap: 16rpx; transition: all 0.2s;
+	&:active { background: #F0F0F0; border-color: $theme-color; }
+}
+.upload-text { font-size: 28rpx; color: $text-color; font-weight: 500; }
+.upload-subtext { font-size: 24rpx; color: #AAAAAA; }
+
+/* 文件列表 */
+.file-list { margin-top: 30rpx; display: flex; flex-direction: column; gap: 20rpx; }
+.file-item { display: flex; align-items: center; justify-content: space-between; padding: 20rpx; background: #F5F7FA; border-radius: 16rpx; }
+.file-info-left { display: flex; align-items: center; gap: 20rpx; flex: 1; overflow: hidden; }
+.file-icon { width: 72rpx; height: 72rpx; background: #EBF0FF; border-radius: 12rpx; display: flex; align-items: center; justify-content: center; }
+.file-meta { display: flex; flex-direction: column; }
+.file-name { font-size: 28rpx; color: $text-color; margin-bottom: 4rpx; }
+.file-size { font-size: 22rpx; color: $text-light; }
+.delete-btn { padding: 16rpx; }
+
+/* 图表容器 */
+.charts-box { width: 100%; height: 500rpx; margin-bottom: 20rpx; }
+
+/* 成员列表 */
+.member-list { display: flex; flex-direction: column; gap: 30rpx; }
+.member-row { display: flex; flex-direction: column; gap: 16rpx; }
+.member-header { display: flex; justify-content: space-between; align-items: center; }
+.member-info { display: flex; align-items: center; gap: 16rpx; }
+.avatar-circle { width: 60rpx; height: 60rpx; border-radius: 50%; background: linear-gradient(135deg, #4C8AF2, #6C5BFF); color: white; font-size: 24rpx; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+.member-name { font-size: 28rpx; font-weight: 500; color: $text-color; }
+
+.contribution-control { display: flex; align-items: center; gap: 16rpx; }
+.ctrl-btn { width: 44rpx; height: 44rpx; background: #F0F0F0; border-radius: 8rpx; display: flex; align-items: center; justify-content: center; &:active { background: #E0E0E0; } }
+.score-text { font-size: 28rpx; font-weight: bold; color: $theme-color; width: 50rpx; text-align: center; }
+
+.progress-track { height: 12rpx; background: #F0F0F0; border-radius: 6rpx; overflow: hidden; }
+.progress-bar { height: 100%; background: linear-gradient(90deg, #4C8AF2, #6C5BFF); border-radius: 6rpx; transition: width 0.3s ease; }
+
+.footer-action { margin-top: 20rpx; }
+.submit-button {
+	height: 96rpx; line-height: 96rpx; background: $theme-gradient; color: white; font-size: 32rpx; font-weight: bold; border-radius: 24rpx; box-shadow: 0 8rpx 20rpx rgba(76, 138, 242, 0.3);
+	&.disabled { background: #CCCCCC; box-shadow: none; color: #EEEEEE; }
+}
+</style>

@@ -137,11 +137,13 @@ const learningMenu = [
 
 const settingsMenu = [
   { id: 'notifications', label: '消息通知', icon: 'notification', color: '#F97316' },
-  { id: 'help', label: '帮助中心', icon: 'help', color: '#06B6D4' },
+ { id: 'settings', label: '系统设置', icon: 'gear', color: '#60A5FA' },
+ { id: 'help', label: '帮助中心', icon: 'help', color: '#06B6D4' },
   { id: 'about', label: '关于我们', icon: 'info', color: '#888888' }
 ];
 
 const handleMenuClick = (id) => {
+	if (id === 'settings') uni.navigateTo({ url: '/pages/index/SettingsView' });
   console.log('Menu clicked:', id);
   // uni.navigateTo(...)
 };

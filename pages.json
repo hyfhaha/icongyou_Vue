@@ -63,19 +63,24 @@
 				"navigationBarTitleText": "提交作业"
 			}
 		},
-		{
+		/*{
 			// 我的团队 (Tab)
 			"path": "pages/index/TeamView",
 			"style": {
 				"navigationBarTitleText": "我的团队"
 			}
-		},
+		},*/
 		{
 			// 个人中心 (Tab)
 			"path": "pages/index/ProfileView",
 			"style": {
 				"navigationBarTitleText": "个人中心"
 			}
+		},
+		{
+            // [新增] 数据中心页面
+			"path": "pages/index/DataDashboardView",
+			"style": { "navigationBarTitleText": "数据中心" }
 		},
 		{
 			// 设置
@@ -105,12 +110,12 @@
 				"iconPath": "static/tabs/courses.png",
 				"selectedIconPath": "static/tabs/courses_active.png"
 			},
-			{
+			/*{
 				"pagePath": "pages/index/TeamView",
 				"text": "团队",
 				"iconPath": "static/tabs/team.png",
 				"selectedIconPath": "static/tabs/team_active.png"
-			},
+			},*/
 			{
 				"pagePath": "pages/index/ProfileView",
 				"text": "我的",
