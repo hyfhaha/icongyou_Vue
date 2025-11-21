@@ -32,8 +32,23 @@
 
 				<view class="card-box">
 					<view class="card-title-row">
-						<uni-icons type="pyq" size="20" color="#4C8AF2"></uni-icons>
-						<text class="card-title">工程认证能力维度达成度</text>
+						<uni-icons type="person-filled" size="20" color="#4C8AF2"></uni-icons>
+						<text class="card-title">当前登录信息</text>
+					</view>
+					<view class="info-row">
+						<text class="info-label">姓名：</text>
+						<text class="info-val">{{ authStore.userInfo.nickname }}</text>
+					</view>
+					<view class="info-row">
+						<text class="info-label">学号：</text>
+						<text class="info-val">{{ authStore.userInfo.jobNumber }}</text>
+					</view>
+				</view>
+
+				<view class="card-box">
+					<view class="card-title-row">
+						<uni-icons type="pyq" size="20" color="#9B59B6"></uni-icons>
+						<text class="card-title">工程认证能力维度</text>
 					</view>
 					<view class="dimension-list">
 						<view v-for="dim in abilityDimensions" :key="dim.id" class="dimension-item">
@@ -52,9 +67,9 @@
 			<view v-if="activeTab === 'team'" class="tab-content fade-in">
 				<view class="team-header-card">
 					<view class="team-top">
-						<text class="team-name">追梦小队</text>
+						<text class="team-name">{{ myTeam.groupName }}</text>
 						<view class="team-score-badge">
-							<text>总分 85</text>
+							<text>总分 {{ myTeam.totalScore }}</text>
 						</view>
 					</view>
 					<view class="team-stats-row">
@@ -92,22 +107,28 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
-// [关键] 引入 userStore，注意路径是 store
-import { useUserStore } from '@/store/userStore';
+// 引入两个 Store
+import { useAuthStore } from '@/store/authStore';
+import { useCourseContextStore } from '@/store/courseContextStore';
 
 const activeTab = ref('personal');
 
-// 初始化 Store
-const userStore = useUserStore();
+const authStore = useAuthStore();
+const contextStore = useCourseContextStore();
 
-// [关键] 使用 storeToRefs 解构数据，保持响应式
-const { personalData, abilityDimensions, teamMembers } = storeToRefs(userStore);
+// 解构数据
+const { personalData, abilityDimensions, myTeam, teamMembers } = storeToRefs(contextStore);
 
-const goBack = () => {
-	uni.navigateBack();
-};
+onMounted(() => {
+    // 确保已登录，否则显示默认值
+    if(authStore.userInfo.nickname === '未登录') {
+        authStore.login();
+    }
+});
+
+const goBack = () => uni.navigateBack();
 </script>
 
 <style lang="scss" scoped>
@@ -140,7 +161,6 @@ $theme-color: #4C8AF2;
 .fade-in { animation: fadeIn 0.3s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10rpx); } to { opacity: 1; transform: translateY(0); } }
 
-/* 个人数据样式 */
 .summary-card {
 	background: linear-gradient(135deg, #4C8AF2, #6C5BFF); border-radius: 24rpx; padding: 40rpx;
 	color: white; display: flex; justify-content: space-between; margin-bottom: 30rpx;
@@ -152,17 +172,22 @@ $theme-color: #4C8AF2;
 .block-value.highlight { color: #F9D423; }
 .block-sub { font-size: 22rpx; opacity: 0.8; }
 
-/* 维度进度条 */
+.card-box { background: #fff; border-radius: 24rpx; padding: 30rpx; margin-bottom: 30rpx; box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05); }
+.card-title-row { display: flex; gap: 16rpx; margin-bottom: 20rpx; align-items: center; }
+.card-title { font-size: 32rpx; font-weight: bold; color: $text-color; }
+
+.info-row { display: flex; margin-bottom: 10rpx; font-size: 28rpx; }
+.info-label { color: #888; width: 120rpx; }
+.info-val { color: #333; font-weight: 500; }
+
 .dimension-list { display: flex; flex-direction: column; gap: 24rpx; }
 .dim-header { display: flex; justify-content: space-between; margin-bottom: 8rpx; font-size: 26rpx; }
 .progress-bg { height: 16rpx; background: #F0F0F0; border-radius: 8rpx; overflow: hidden; }
 .progress-fill { height: 100%; border-radius: 8rpx; transition: width 0.5s ease; }
 
-/* 团队数据样式 */
 .team-header-card {
 	background: linear-gradient(135deg, #8B5CF6, #6366F1); border-radius: 24rpx; padding: 40rpx;
-	color: white; margin-bottom: 30rpx;
-	box-shadow: 0 10rpx 30rpx rgba(139, 92, 246, 0.3);
+	color: white; margin-bottom: 30rpx; box-shadow: 0 10rpx 30rpx rgba(139, 92, 246, 0.3);
 }
 .team-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30rpx; }
 .team-name { font-size: 40rpx; font-weight: bold; }
@@ -172,10 +197,7 @@ $theme-color: #4C8AF2;
 .ts-val { font-size: 36rpx; font-weight: bold; }
 .ts-lbl { font-size: 22rpx; opacity: 0.8; }
 
-/* 成员列表 */
-.member-item {
-	display: flex; align-items: center; padding: 20rpx 0; border-bottom: 1rpx solid #F0F0F0;
-}
+.member-item { display: flex; align-items: center; padding: 20rpx 0; border-bottom: 1rpx solid #F0F0F0; }
 .m-avatar {
 	width: 80rpx; height: 80rpx; background: #E0E7FF; color: $theme-color; border-radius: 50%;
 	display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 20rpx;
@@ -188,8 +210,4 @@ $theme-color: #4C8AF2;
 .m-contribution { text-align: right; }
 .c-val { font-size: 30rpx; font-weight: bold; color: $theme-color; }
 .c-lbl { font-size: 20rpx; color: #888; display: block; }
-
-.card-box { background: #fff; border-radius: 24rpx; padding: 30rpx; margin-bottom: 30rpx; box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05); }
-.card-title-row { display: flex; gap: 16rpx; margin-bottom: 20rpx; align-items: center; }
-.card-title { font-size: 32rpx; font-weight: bold; color: $text-color; }
 </style>

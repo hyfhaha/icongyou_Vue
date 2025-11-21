@@ -1,6 +1,5 @@
 <template>
 	<view class="task-detail-page">
-		<!-- 头部 -->
 		<view class="header-sticky">
 			<view class="header-content">
 				<view class="icon-button" @click="goBack">
@@ -14,11 +13,10 @@
 		</view>
 
 		<scroll-view scroll-y="true" class="page-scroll">
-			<!-- 任务头信息卡片 -->
 			<view class="task-header-card">
 				<view class="header-top">
 					<view class="header-left">
-						<text class="task-title">T4-1爱从游（学生移动端）详情</text>
+						<text class="task-title">{{ currentTask.storyName }}</text>
 						<view class="meta-row">
 							<view class="meta-tag">
 								<uni-icons type="staff-filled" size="14" color="#FFFFFF"></uni-icons>
@@ -26,7 +24,7 @@
 							</view>
 							<view class="meta-tag">
 								<uni-icons type="paperplane-filled" size="14" color="#FFFFFF"></uni-icons>
-								<text>200分</text>
+								<text>{{ currentTask.totalScore }}分</text>
 							</view>
 						</view>
 					</view>
@@ -38,25 +36,23 @@
 					</view>
 				</view>
 				
-				<!-- 截止时间 -->
 				<view class="deadline-card">
 					<view class="deadline-item">
 						<text class="deadline-label">截止时间</text>
-						<text class="deadline-value">2025-11-30 00:00:00</text>
+						<text class="deadline-value">{{ currentTask.deadline }}</text>
 					</view>
 					<view class="deadline-item" style="text-align: right;">
-						<text class="deadline-label">剩余时间</text>
-						<text class="deadline-value" style="color: #F39C12;">13天</text>
+						<text class="deadline-label">状态</text>
+						<text class="deadline-value" style="color: #F39C12;">{{ currentTask.status }}</text>
 					</view>
 				</view>
 			</view>
 
-			<!-- 任务信息 -->
 			<view class="card-box">
 				<view class="info-grid">
 					<view class="info-item">
 						<text class="info-label">任务名称</text>
-						<text class="info-value">T4-1爱从游（学生移动端）</text>
+						<text class="info-value">{{ currentTask.storyName }}</text>
 					</view>
 					<view class="info-item">
 						<text class="info-label">任务类型</text>
@@ -64,7 +60,7 @@
 					</view>
 					<view class="info-item">
 						<text class="info-label">任务总分</text>
-						<text class="info-value">200</text>
+						<text class="info-value">{{ currentTask.totalScore }}</text>
 					</view>
 					<view class="info-item">
 						<text class="info-label">提交次数</text>
@@ -74,22 +70,9 @@
 						<text class="info-label">是否必做</text>
 						<text class="info-value" style="color: #2ECC71;">是</text>
 					</view>
-					<view class="info-item">
-						<text class="info-label">作业性质</text>
-						<text class="info-value">任务剧团队内提交</text>
 					</view>
-					<view class="info-item">
-						<text class="info-label">开始时间</text>
-						<text class="info-value">未设定</text>
-					</view>
-					<view class="info-item">
-						<text class="info-label">任务解锁</text>
-						<text class="info-value">不上锁</text>
-					</view>
-				</view>
 			</view>
 
-			<!-- 要求事项 -->
 			<view class="card-box">
 				<view class="card-title-row">
 					<uni-icons type="info-filled" size="20" color="#4C8AF2"></uni-icons>
@@ -98,25 +81,15 @@
 				<view class="req-list">
 					<view class="req-item">
 						<view class="req-number"><text>1</text></view>
-						<text class="req-text">多课程教学规划：整合多学科知识要素入口，以本示式规范课程描述、进度要求及支持标准与任务方法；支持跨学科同步和学习路径未来演绎与任务方向。</text>
+						<text class="req-text">{{ currentTask.storyDesc }}</text>
 					</view>
-					<view class="req-item">
-						<view class="req-number"><text>2</text></view>
-						<text class="req-text">展示某课程的任务示例任务，协会某课程中任务者包含色号，展示某任务名称、概览与要求。</text>
 					</view>
-					<!-- ... 其他要求 ... -->
-					<view class="req-item">
-						<view class="req-number"><text>7</text></view>
-						<text class="req-text">兼某者本演练的开表</text>
-					</view>
-				</view>
 			</view>
 
-			<!-- 任务资料 -->
 			<view class="card-box">
 				<view class="card-title-row">
 					<uni-icons type="paperclip" size="20" color="#2ECC71"></uni-icons>
-					<text class="card-title">任务资料 (3)</text>
+					<text class="card-title">任务资料 (1)</text>
 				</view>
 				<view class="material-list">
 					<view class="material-item">
@@ -132,7 +105,6 @@
 				</view>
 			</view>
 
-			<!-- 按钮组 -->
 			<view class="button-group">
 				<button class="button-primary" @click="openSubmitModal">
 					<text>提交作业</text>
@@ -153,33 +125,39 @@
 </template>
 
 <script setup>
+import { storeToRefs } from 'pinia';
+import { useCourseContextStore } from '@/store/courseContextStore';
+
+const contextStore = useCourseContextStore();
+// 从 Store 获取当前选中的任务详情
+const { currentTask } = storeToRefs(contextStore);
+
 const goBack = () => {
 	uni.navigateBack();
 };
 
 const openSubmitModal = () => {
-	console.log('Open submit modal');
-	// (US21) 导航到提交页面
+	// 跳转到提交页面
 	uni.navigateTo({
-		url: '/pages/index/SubmissionView?taskId=T4-1'
+		url: '/pages/index/SubmissionView'
 	});
 };
 
 const goAIHelper = () => {
 	uni.navigateTo({
-		url: '/pages/index/AITutorView?taskId=T4-1'
+		url: '/pages/index/AITutorView'
 	});
 };
 
 const goExcellentWorks = () => {
 	uni.navigateTo({
-		url: '/pages/index/ExcellentWorksView?taskId=T4-1'
+		url: '/pages/index/ExcellentWorksView'
 	});
 };
 </script>
 
 <style lang="scss" scoped>
-// 假设 $theme-color: #4C8AF2; 定义在 uni.scss
+/* 完全复用您提供的 TaskDetailView.vue 样式 */
 $bg-color: #F4F7FA;
 $card-bg: #FFFFFF;
 $text-color: #333333;
@@ -355,7 +333,7 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 		width: 44rpx;
 		height: 44rpx;
 		background: #EBF0F6;
-		color: #4C8AF2; // $theme-color
+		color: #4C8AF2;
 		border-radius: 50%;
 		display: flex;
 		align-items: center;

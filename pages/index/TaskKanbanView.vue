@@ -1,6 +1,5 @@
 <template>
 	<view class="task-map-page">
-		<!-- 头部 -->
 		<view class="header-sticky">
 			<view class="header-content">
 				<view class="icon-button" @click="goBack">
@@ -28,7 +27,6 @@
 			</view>
 		</view>
 
-		<!-- 点阵地图 -->
 		<view class="map-wrapper">
 			<view class="grid" :style="gridStyle">
 				<view
@@ -45,12 +43,11 @@
 					:style="getNodeStyle(task)"
 					@click="openTask(task)"
 				>
-					<text class="node-label">{{ task.label }}</text>
+					<text class="node-label">{{ task.storyName }}</text>
 				</view>
 			</view>
 		</view>
 
-		<!-- 悬浮任务详情 -->
 		<view v-if="activeTask" class="task-overlay" @click="closeOverlay">
 			<view
 				class="task-detail-card"
@@ -59,21 +56,21 @@
 				@touchend="onTouchEnd"
 			>
 				<view class="task-detail-header">
-					<text class="task-detail-title">{{ activeTask.name }}</text>
+					<text class="task-detail-title">{{ activeTask.storyName }}</text>
 					<text class="task-detail-id">{{ activeTask.id }}</text>
 				</view>
 
 				<view class="task-detail-row">
 					<text class="detail-label">截止</text>
-					<text class="detail-value">{{ activeTask.deadline }}</text>
+					<text class="detail-value">{{ activeTask.deadline || '未设定' }}</text>
 				</view>
 				<view class="task-detail-row">
 					<text class="detail-label">核心要求</text>
-					<text class="detail-value">{{ activeTask.requirement }}</text>
+					<text class="detail-value">请参考详情页说明</text>
 				</view>
 				<view class="task-detail-row">
-					<text class="detail-label">热度指数</text>
-					<text class="detail-value">{{ activeTask.heat }} / 100</text>
+					<text class="detail-label">状态</text>
+					<text class="detail-value">{{ activeTask.status }}</text>
 				</view>
 
 				<view class="detail-actions">
@@ -89,19 +86,14 @@
 
 <script setup>
 import { computed, ref } from 'vue';
+import { storeToRefs } from 'pinia';
+import { useCourseContextStore } from '@/store/courseContextStore';
 
+const contextStore = useCourseContextStore();
+const { taskNodes } = storeToRefs(contextStore);
+
+// 假设数据库地图也是 6x6
 const mapSize = { rows: 6, cols: 6 };
-
-const taskNodes = ref([
-  { id: 'T0', label: '起点', name: '启动会议', x: 0, y: 0, deadline: '2025-11-01', requirement: '完成课程导入与分组', heat: 72, status: 'completed' },
-  { id: 'T1', label: 'T1', name: '自动课程', x: 1, y: 1, deadline: '2025-11-05', requirement: '完成课程信息采集与配置', heat: 65, status: 'completed' },
-  { id: 'T2', label: 'T2', name: '团队组建', x: 2, y: 1, deadline: '2025-11-08', requirement: '确定角色分工与负责人', heat: 70, status: 'completed' },
-  { id: 'T3', label: 'T3', name: '团队竞价', x: 3, y: 2, deadline: '2025-11-12', requirement: '提交竞价报告与方案', heat: 58, status: 'submitted' },
-  { id: 'T4-1', label: 'T4-1', name: '爱从游（学生端）', x: 4, y: 3, deadline: '2025-11-30', requirement: '实现点阵地图与AI入口', heat: 90, status: 'in-progress' },
-  { id: 'T4-2', label: 'T4-2', name: '爱从游（教师端）', x: 2, y: 3, deadline: '2025-11-28', requirement: '搭建教师评价看板', heat: 76, status: 'in-progress' },
-  { id: 'T5', label: 'T5', name: '爱从游（管理端）', x: 3, y: 4, deadline: '2025-12-05', requirement: '完成管理端监控功能', heat: 52, status: 'upcoming' },
-  { id: 'T6', label: 'T6', name: '验收答辩', x: 5, y: 5, deadline: '2025-12-15', requirement: '准备汇报材料与演示', heat: 48, status: 'upcoming' }
-]);
 
 const activeTask = ref(null);
 const touchStart = ref({ x: 0, y: 0 });
@@ -114,8 +106,9 @@ const gridStyle = computed(() => ({
 }));
 
 const getNodeStyle = (task) => ({
-  gridColumnStart: task.x + 1,
-  gridRowStart: task.y + 1
+  // 数据库字段: positionX, positionY
+  gridColumnStart: task.positionX + 1,
+  gridRowStart: task.positionY + 1
 });
 
 const goBack = () => {
@@ -132,11 +125,14 @@ const closeOverlay = () => {
 
 const enterTask = () => {
   if (!activeTask.value) return;
+  // [修改] 先在 Store 中选中，再跳转
+  contextStore.selectTask(activeTask.value.id);
   uni.navigateTo({
-    url: `/pages/index/TaskDetailView?taskId=${activeTask.value.id}`
+    url: '/pages/index/TaskDetailView'
   });
 };
 
+// --- 滑动切换逻辑 (保留原代码) ---
 const onTouchStart = (event) => {
   const touch = event.changedTouches?.[0];
   if (!touch) return;
@@ -162,25 +158,30 @@ const moveToNeighbor = (direction) => {
   const current = activeTask.value;
   if (!current) return;
 
+  // 过滤出自己以外的所有任务
   const candidates = taskNodes.value.filter(task => task.id !== current.id);
   let next = null;
 
+  // 注意：原代码用的是 task.x, task.y，现在改为 task.positionX, task.positionY
+  const cx = current.positionX;
+  const cy = current.positionY;
+
   if (direction === 'left') {
     next = candidates
-      .filter(task => task.y === current.y && task.x < current.x)
-      .sort((a, b) => b.x - a.x)[0];
+      .filter(task => task.positionY === cy && task.positionX < cx)
+      .sort((a, b) => b.positionX - a.positionX)[0];
   } else if (direction === 'right') {
     next = candidates
-      .filter(task => task.y === current.y && task.x > current.x)
-      .sort((a, b) => a.x - b.x)[0];
+      .filter(task => task.positionY === cy && task.positionX > cx)
+      .sort((a, b) => a.positionX - b.positionX)[0];
   } else if (direction === 'up') {
     next = candidates
-      .filter(task => task.x === current.x && task.y < current.y)
-      .sort((a, b) => b.y - a.y)[0];
+      .filter(task => task.positionX === cx && task.positionY < cy)
+      .sort((a, b) => b.positionY - a.positionY)[0];
   } else if (direction === 'down') {
     next = candidates
-      .filter(task => task.x === current.x && task.y > current.y)
-      .sort((a, b) => a.y - b.y)[0];
+      .filter(task => task.positionX === cx && task.positionY > cy)
+      .sort((a, b) => a.positionY - b.positionY)[0];
   }
 
   if (next) {
@@ -196,6 +197,7 @@ const moveToNeighbor = (direction) => {
 </script>
 
 <style lang="scss" scoped>
+/* 完全复用您提供的 TaskKanbanView.vue 样式 */
 $bg-color: #F4F7FA;
 $card-bg: #FFFFFF;
 $text-color: #333333;
@@ -387,4 +389,3 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 	text-align: center;
 }
 </style>
-

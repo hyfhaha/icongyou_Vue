@@ -6,108 +6,140 @@
 					<uni-icons type="left" size="22" color="#555555"></uni-icons>
 				</view>
 				<text class="header-title">设置</text>
-				<view class="icon-button">
-					<uni-icons type="gear" size="22" color="#555555"></uni-icons>
-				</view>
+				<view class="icon-button"></view>
 			</view>
 		</view>
 
 		<scroll-view scroll-y class="page-scroll">
 			<view class="section-card">
 				<text class="section-title">个性化偏好</text>
+				
 				<view class="setting-item">
 					<view>
 						<text class="setting-label">显示学期标签</text>
-						<text class="setting-desc">在课程导览页显示更多筛选标签</text>
+						<text class="setting-desc">在课程列表页显示学期分类标签</text>
 					</view>
-					<switch :checked="preferences.showTags" color="#4C8AF2" @change="toggleSwitch('showTags', $event.detail.value)"></switch>
+					<switch 
+						:checked="preferences.showTags" 
+						color="#4C8AF2" 
+						@change="handleToggle('showTags')"
+						style="transform:scale(0.8)"
+					></switch>
 				</view>
+				
 				<view class="setting-item">
 					<view>
 						<text class="setting-label">学习提醒</text>
-						<text class="setting-desc">距离截止前 24 小时推送提醒</text>
+						<text class="setting-desc">距离任务截止前 24 小时推送提醒</text>
 					</view>
-					<switch :checked="preferences.reminder" color="#4C8AF2" @change="toggleSwitch('reminder', $event.detail.value)"></switch>
+					<switch 
+						:checked="preferences.reminder" 
+						color="#4C8AF2" 
+						@change="handleToggle('reminder')"
+						style="transform:scale(0.8)"
+					></switch>
 				</view>
+				
 				<view class="setting-item">
 					<view>
 						<text class="setting-label">夜间主题</text>
 						<text class="setting-desc">低亮度配色，适合夜间学习</text>
 					</view>
-					<switch :checked="preferences.darkMode" color="#4C8AF2" @change="toggleSwitch('darkMode', $event.detail.value)"></switch>
+					<switch 
+						:checked="preferences.darkMode" 
+						color="#4C8AF2" 
+						@change="handleToggle('darkMode')"
+						style="transform:scale(0.8)"
+					></switch>
 				</view>
 			</view>
 
 			<view class="section-card">
 				<text class="section-title">账号与安全</text>
 				<view class="setting-list">
-					<view class="setting-row" @click="onNavigate('account')">
-						<text>账号信息</text>
-						<uni-icons type="right" size="18" color="#AAAAAA"></uni-icons>
+					<view class="setting-row" @click="onNavigate('profile')">
+						<text>个人资料</text>
+						<uni-icons type="right" size="16" color="#AAAAAA"></uni-icons>
 					</view>
 					<view class="setting-row" @click="onNavigate('password')">
 						<text>修改密码</text>
-						<uni-icons type="right" size="18" color="#AAAAAA"></uni-icons>
+						<uni-icons type="right" size="16" color="#AAAAAA"></uni-icons>
 					</view>
-					<view class="setting-row" @click="onNavigate('privacy')">
+					<view class="setting-row">
 						<text>隐私与授权</text>
-						<uni-icons type="right" size="18" color="#AAAAAA"></uni-icons>
+						<uni-icons type="right" size="16" color="#AAAAAA"></uni-icons>
 					</view>
 				</view>
 			</view>
 
 			<view class="section-card">
-				<text class="section-title">数据导出</text>
+				<text class="section-title">数据管理</text>
 				<view class="export-card">
-					<text class="export-desc">可将本学期课程成绩、任务完成情况导出为 Excel，用于工程认证佐证材料。</text>
+					<text class="export-desc">导出本学期课程成绩与任务佐证材料 (Excel/PDF)。</text>
 					<button class="button-primary" @click="exportData">导出数据</button>
 				</view>
 			</view>
 
 			<view class="section-card danger">
-				<button class="button-danger" @click="logout">退出当前账号</button>
+				<button class="button-danger" @click="handleLogout">退出当前账号</button>
 			</view>
 		</scroll-view>
 	</view>
 </template>
 
 <script setup>
-import { reactive } from 'vue';
+import { onMounted } from 'vue';
+import { storeToRefs } from 'pinia';
+// 引入两个 Store
+import { useSettingsStore } from '@/store/settingsStore';
+import { useAuthStore } from '@/store/authStore';
 
-const preferences = reactive({
-  showTags: true,
-  reminder: true,
-  darkMode: false
+const settingsStore = useSettingsStore();
+const authStore = useAuthStore();
+
+const { preferences } = storeToRefs(settingsStore);
+
+// 初始化加载配置
+onMounted(() => {
+	settingsStore.loadSettings();
 });
 
 const goBack = () => {
   uni.navigateBack();
 };
 
-const toggleSwitch = (key, value) => {
-  preferences[key] = value;
+// 切换开关
+const handleToggle = (key) => {
+  settingsStore.toggleSetting(key);
 };
 
 const onNavigate = (type) => {
-  console.log('navigate to', type);
-  if (type === 'account') {
-    uni.navigateTo({ url: '/pages/index/ProfileView' });
+  if (type === 'profile') {
+    uni.switchTab({ url: '/pages/index/ProfileView' });
+  } else {
+    uni.showToast({ title: '功能开发中', icon: 'none' });
   }
 };
 
 const exportData = () => {
-  uni.showToast({
-    title: '已开始导出',
-    icon: 'success'
-  });
+  uni.showLoading({ title: '正在生成...' });
+  setTimeout(() => {
+    uni.hideLoading();
+    uni.showToast({
+      title: '导出成功，已发送至邮箱',
+      icon: 'success'
+    });
+  }, 1500);
 };
 
-const logout = () => {
+// 退出登录 (复用 authStore 的逻辑)
+const handleLogout = () => {
   uni.showModal({
     title: '提示',
     content: '确认退出当前登录吗？',
     success: (res) => {
       if (res.confirm) {
+        authStore.logout();
         uni.reLaunch({ url: '/pages/index/LoginView' });
       }
     }
@@ -163,7 +195,7 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	box-sizing: border-box;
 	display: flex;
 	flex-direction: column;
-	gap: 24rpx;
+	gap: 30rpx;
 }
 
 .section-card {
@@ -173,7 +205,9 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	box-shadow: $shadow;
 }
 .section-card.danger {
-	background: #FFF5F5;
+	background: transparent;
+	box-shadow: none;
+	padding: 0;
 }
 .section-title {
 	font-size: 28rpx;
@@ -181,20 +215,23 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	color: $text-color;
 	display: block;
 	margin-bottom: 24rpx;
+	padding-left: 8rpx;
+	border-left: 6rpx solid #4C8AF2;
+	line-height: 1;
 }
 
 .setting-item {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 20rpx 0;
+	padding: 24rpx 0;
 	border-bottom: 1rpx solid $border-color;
 	&:last-child {
 		border-bottom: none;
 	}
 }
 .setting-label {
-	font-size: 28rpx;
+	font-size: 30rpx;
 	color: $text-color;
 	display: block;
 }
@@ -202,6 +239,7 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	font-size: 24rpx;
 	color: $text-light;
 	margin-top: 6rpx;
+	display: block;
 }
 
 .setting-list {
@@ -212,12 +250,12 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 20rpx 0;
+	padding: 28rpx 0;
 	border-bottom: 1rpx solid $border-color;
 	&:last-child {
 		border-bottom: none;
 	}
-	font-size: 28rpx;
+	font-size: 30rpx;
 	color: $text-color;
 }
 
@@ -244,10 +282,10 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	width: 100%;
 	height: 96rpx;
 	border-radius: 20rpx;
-	background: linear-gradient(135deg, #F87171, #EF4444);
-	color: white;
+	background: #FFFFFF;
+	color: #EF4444;
+	border: 2rpx solid #FCA5A5;
 	font-size: 30rpx;
 	font-weight: 600;
 }
 </style>
-

@@ -1,4 +1,5 @@
 // store/userStore.js
+//此js可能不再使用。
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 

@@ -7,28 +7,61 @@
 				</view>
 				<text class="header-title">AI 互动讨论</text>
 				<view class="icon-button">
-					<uni-icons type="chatbubble-filled" size="22" color="#0EA5E9"></uni-icons>
+					<uni-icons type="trash" size="22" color="#E74C3C" @click="handleClear"></uni-icons>
 				</view>
 			</view>
 		</view>
 
-		<view class="hint-bar">
-			<text>任务: T4-1 爱从游（学生移动端） · 输入疑问，AI 将结合任务要求生成解题思路</text>
+		<view class="hint-bar" v-if="currentTask.id">
+			<uni-icons type="info" size="14" color="#0EA5E9" style="margin-right: 8rpx;"></uni-icons>
+			<text>当前任务: {{ currentTask.storyName }}</text>
 		</view>
 
-		<scroll-view scroll-y class="message-scroll" :scroll-into-view="lastMessageId">
-			<view v-for="message in messages" :key="message.id" :id="message.id" class="message-row" :class="message.role">
-				<view class="avatar" :class="message.role">{{ message.role === 'user' ? '我' : 'AI' }}</view>
+		<scroll-view 
+			scroll-y 
+			class="message-scroll" 
+			:scroll-into-view="scrollTarget"
+			:scroll-with-animation="true"
+		>
+			<view 
+				v-for="message in messages" 
+				:key="message.id" 
+				:id="'msg-' + message.id"
+				class="message-row" 
+				:class="message.role"
+			>
+				<view class="avatar" :class="message.role">
+					{{ message.role === 'user' ? '我' : 'AI' }}
+				</view>
 				<view class="bubble">
 					<text class="bubble-text">{{ message.content }}</text>
 					<text class="timestamp">{{ message.time }}</text>
 				</view>
 			</view>
+			
+			<view v-if="isTyping" class="message-row ai" id="typing-indicator">
+				<view class="avatar ai">AI</view>
+				<view class="bubble typing">
+					<text class="dot">.</text><text class="dot">.</text><text class="dot">.</text>
+				</view>
+			</view>
+			
+			<view style="height: 20rpx;" id="bottom-anchor"></view>
 		</scroll-view>
 
 		<view class="composer">
-			<textarea v-model="draft" placeholder="请输入问题，例如：如何统计任务提交率？" auto-height class="composer-input" />
-			<button class="send-button" :disabled="!draft.trim()" @click="sendMessage">
+			<textarea 
+				v-model="draft" 
+				placeholder="请输入问题，例如：如何统计任务提交率？" 
+				auto-height 
+				class="composer-input"
+				:maxlength="200"
+			/>
+			<button 
+				class="send-button" 
+				:disabled="!draft.trim() || isTyping" 
+				@click="handleSend"
+			>
 				发送
 			</button>
 		</view>
@@ -36,42 +69,60 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { ref, nextTick } from 'vue';
+import { storeToRefs } from 'pinia';
+// 引入 Store
+import { useChatStore } from '@/store/chatStore';
+import { useCourseContextStore } from '@/store/courseContextStore';
 
-const now = () => {
-  const date = new Date();
-  return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-};
+const chatStore = useChatStore();
+const contextStore = useCourseContextStore();
 
-const messages = ref([
-  { id: 'm1', role: 'ai', content: '你好，我是爱从游课程助教。可以就任务设计、AI 工具集成等问题咨询我。', time: now() },
-  { id: 'm2', role: 'user', content: '想知道任务提交率要展示哪些指标？', time: now() },
-  { id: 'm3', role: 'ai', content: '建议展示已提交/未提交人数与百分占比，并结合截止时间显示风险提示；可附带查看量、讨论量提升热度感知。', time: now() }
-]);
+// 1. 获取聊天数据
+const { messages, isTyping } = storeToRefs(chatStore);
+// 2. 获取当前任务上下文 (从 TaskDetailView 进来时会带有 currentTask)
+const { currentTask } = storeToRefs(contextStore);
 
 const draft = ref('');
-const lastMessageId = computed(() => messages.value.length ? messages.value[messages.value.length - 1].id : '');
+const scrollTarget = ref('');
 
 const goBack = () => {
-  uni.navigateBack();
+	uni.navigateBack();
 };
 
-const sendMessage = () => {
-  const content = draft.value.trim();
-  if (!content) return;
-  const userMessage = { id: `m${Date.now()}`, role: 'user', content, time: now() };
-  messages.value.push(userMessage);
-  draft.value = '';
+const handleSend = async () => {
+	const content = draft.value.trim();
+	if (!content) return;
 
-  // 模拟 AI 回复
-  setTimeout(() => {
-    messages.value.push({
-      id: `m${Date.now()}`,
-      role: 'ai',
-      content: `可将“${content}”拆解为可执行的 3 步：1) 明确任务输入输出；2) 选择合适的统计或 UI 组件；3) 在提交区联动提醒。`,
-      time: now()
-    });
-  }, 600);
+	// 清空输入框
+	draft.value = '';
+	
+	// 发送并滚动到底部
+	scrollToBottom();
+	await chatStore.sendMessage(content);
+	scrollToBottom();
+};
+
+const handleClear = () => {
+	uni.showModal({
+		title: '提示',
+		content: '确定清空聊天记录吗？',
+		success: (res) => {
+			if (res.confirm) {
+				chatStore.clearChat();
+			}
+		}
+	});
+};
+
+const scrollToBottom = () => {
+	nextTick(() => {
+		// 简单处理：滚动到最新一条消息或底部锚点
+		if (messages.value.length > 0) {
+			const lastId = messages.value[messages.value.length - 1].id;
+			scrollTarget.value = 'msg-' + lastId;
+		}
+	});
 };
 </script>
 
@@ -120,6 +171,8 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	color: #0EA5E9;
 	padding: 18rpx 30rpx;
 	font-size: 24rpx;
+	display: flex;
+	align-items: center;
 }
 
 .message-scroll {
@@ -129,12 +182,12 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	box-sizing: border-box;
 	display: flex;
 	flex-direction: column;
-	gap: 24rpx;
 }
 .message-row {
 	display: flex;
 	align-items: flex-start;
 	gap: 16rpx;
+	margin-bottom: 30rpx;
 }
 .message-row.user {
 	flex-direction: row-reverse;
@@ -143,51 +196,80 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	width: 68rpx;
 	height: 68rpx;
 	border-radius: 50%;
-	background: linear-gradient(135deg, #4C8AF2, #6C5BFF);
 	color: white;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	font-weight: 600;
+	font-size: 24rpx;
+	flex-shrink: 0;
+}
+.avatar.user {
+	background: linear-gradient(135deg, #4C8AF2, #6C5BFF);
 }
 .avatar.ai {
 	background: linear-gradient(135deg, #34D399, #10B981);
 }
 .bubble {
-	max-width: 500rpx;
-	padding: 24rpx;
+	max-width: 70%;
+	padding: 20rpx 24rpx;
 	border-radius: 24rpx;
 	background: $card-bg;
 	box-shadow: $shadow;
+	position: relative;
 }
 .message-row.user .bubble {
 	background: linear-gradient(135deg, #4C8AF2, #6C5BFF);
 	color: white;
+	border-top-right-radius: 4rpx;
+}
+.message-row.ai .bubble {
+	border-top-left-radius: 4rpx;
 }
 .bubble-text {
-	font-size: 26rpx;
-	line-height: 1.6;
+	font-size: 28rpx;
+	line-height: 1.5;
+	word-break: break-all;
 }
 .timestamp {
-	font-size: 22rpx;
+	font-size: 20rpx;
 	color: $text-light;
 	display: block;
 	margin-top: 8rpx;
+	text-align: right;
 }
 .message-row.user .timestamp {
 	color: rgba(255,255,255,0.7);
 }
 
+/* 输入中动画 */
+.bubble.typing {
+	display: flex;
+	gap: 6rpx;
+	padding: 20rpx 30rpx;
+}
+.dot {
+	animation: blink 1.4s infinite both;
+}
+.dot:nth-child(1) { animation-delay: 0s; }
+.dot:nth-child(2) { animation-delay: 0.2s; }
+.dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes blink {
+	0% { opacity: 0.2; } 20% { opacity: 1; } 100% { opacity: 0.2; }
+}
+
 .composer {
-	padding: 20rpx 30rpx 30rpx;
+	padding: 20rpx 30rpx 40rpx; /* 底部留白适配全面屏 */
 	background: #FFFFFF;
 	box-shadow: 0 -4rpx 12rpx rgba(0, 0, 0, 0.05);
 	display: flex;
+	align-items: flex-end;
 	gap: 20rpx;
 }
 .composer-input {
 	flex: 1;
-	min-height: 120rpx;
+	min-height: 80rpx;
+	max-height: 200rpx;
 	border-radius: 20rpx;
 	background: #F3F4F6;
 	padding: 20rpx;
@@ -196,6 +278,8 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 .send-button {
 	width: 140rpx;
+	height: 80rpx;
+	line-height: 80rpx;
 	border-radius: 20rpx;
 	background: linear-gradient(135deg, #0EA5E9, #2563EB);
 	color: white;
@@ -204,6 +288,6 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 .send-button:disabled {
 	opacity: 0.5;
+	background: #CCCCCC;
 }
 </style>
-

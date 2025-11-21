@@ -1,19 +1,14 @@
 <template>
 	<view class="course-list-page">
-		<!-- 头部 -->
 		<view class="header-sticky">
 			<view class="header-content">
 				<view class="header-left">
 					<view class="logo-bg">
-						<!-- 
-							注意: SVG 已替换为 uni-icons
-							您需要在 HBuilderX 中通过 DCloud 插件市场安装 uni-icons
-						-->
 						<uni-icons type="pyq" size="24" color="#FFFFFF"></uni-icons>
 					</view>
 					<view>
 						<text class="header-title">我的课程</text>
-						<text class="header-subtitle">{{ courses.length }} 门课程</text>
+						<text class="header-subtitle">{{ courseList.length }} 门课程</text>
 					</view>
 				</view>
 				
@@ -29,9 +24,7 @@
 			</view>
 		</view>
 
-		<!-- 筛选 -->
 		<view class="filter-container">
-			<!-- 搜索框 -->
 			<view class="search-bar">
 				<uni-icons type="search" size="20" color="#999" class="search-icon"></uni-icons>
 				<input
@@ -42,70 +35,58 @@
 				/>
 			</view>
 			
-			<!-- 学期滚动筛选 -->
 			<scroll-view scroll-x="true" class="filter-scroll" :show-scrollbar="false">
 				<view
 					v-for="filter in filters"
-					:key="filter.id"
-					@click="activeFilter = filter.id"
+					:key="filter.value"
+					@click="activeFilter = filter.value"
 					class="filter-tag"
-					:class="{ active: activeFilter === filter.id }"
+					:class="{ active: activeFilter === filter.value }"
 				>
 					<text>{{ filter.label }}</text>
 				</view>
 			</scroll-view>
 		</view>
 
-		<!-- 课程网格 -->
 		<view class="course-grid">
 			<view
 				v-for="course in filteredCourses"
-				:key="course.id"
-				@click="goToCourse(course.id)"
+				:key="course.courseId"
+				@click="handleEnterCourse(course.courseId)"
 				class="course-card"
 			>
-				<!-- 课程封面 -->
 				<view class="card-image-wrapper">
-					<image
-						:src="course.cover"
-						:alt="course.name"
-						class="card-image"
-						mode="aspectFill"
-					/>
+					<view class="placeholder-img"></view>
+					
 					<view class="tag-top-left">
-						<text class="tag-text" :style="{ backgroundColor: course.type === '实训课程' ? '#2ECC71' : '#3498DB' }">
-							{{ course.type }}
-						</text>
+						<text class="tag-text">{{ getCourseTypeLabel(course.courseType) }}</text>
 					</view>
-					<view v-if="course.isRequired" class="tag-top-right">
-						<text class="tag-text" style="background-color: #E74C3C;">
-							必修
-						</text>
+					
+					<view v-if="course.courseType === 3" class="tag-top-right">
+						<text class="tag-text" style="background-color: #E74C3C;">必修</text>
 					</view>
 				</view>
 
-				<!-- 课程信息 -->
 				<view class="card-content">
-					<text class="card-title">{{ course.name }}</text>
+					<text class="card-title">{{ course.courseName }}</text>
 					
 					<view class="card-meta">
 						<uni-icons type="person" size="14" color="#888"></uni-icons>
 						<text class="card-teacher">{{ course.teacher }}</text>
+						<text class="card-semester"> · {{ course.semester }}</text>
 					</view>
 
-					<!-- 统计 -->
 					<view class="card-stats">
 						<view class="stat-item">
 							<uni-icons type="staff" size="14" color="#888"></uni-icons>
-							<text>{{ course.students }}</text>
+							<text>{{ course.studentCount }}</text>
 						</view>
 						<view class="stat-item">
 							<uni-icons type="list" size="14" color="#888"></uni-icons>
-							<text>{{ course.tasks }}个任务</text>
+							<text>{{ course.taskCount }}个任务</text>
 						</view>
 					</view>
 
-					<!-- 进度条 -->
 					<view class="progress-section">
 						<view class="progress-info">
 							<text class="progress-label">完成进度</text>
@@ -125,89 +106,77 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { storeToRefs } from 'pinia';
+import { useCourseContextStore } from '@/store/courseContextStore';
 
-const activeFilter = ref('all');
+const contextStore = useCourseContextStore();
+const { courseList } = storeToRefs(contextStore);
+
 const searchQuery = ref('');
+const activeFilter = ref(0); // 0=全部
 
+// 对应数据库 course_type 定义
 const filters = [
-  { id: 'all', label: '全部' },
-  { id: '2025-1', label: '2025春季' },
-  { id: '2024-2', label: '2024秋季' },
-  { id: 'required', label: '必修课' }
+  { value: 0, label: '全部' },
+  { value: 1, label: '实训' },
+  { value: 2, label: '活动' },
+  { value: 3, label: '必修' },
+  { value: 4, label: '选修' },
+  { value: 5, label: '公共基础' }
 ];
 
-const courses = ref([
-  {
-    id: 1,
-    name: '软件产品构建实训（2025）',
-    teacher: '张老师',
-    cover: 'https://placehold.co/600x300/4C8AF2/FFFFFF?text=课程封面',
-    type: '实训课程',
-    isRequired: true,
-    students: 32,
-    tasks: 14,
-    progress: 45,
-    semester: '2025-1'
-  },
-  {
-    id: 2,
-    name: '软件项目管理 2025',
-    teacher: '李老师',
-    cover: 'https://placehold.co/600x300/2ECC71/FFFFFF?text=课程封面',
-    type: '实训课程',
-    isRequired: true,
-    students: 32,
-    tasks: 24,
-    progress: 68,
-    semester: '2025-1'
-  },
-  {
-    id: 4,
-    name: '嵌入式软件开发技术',
-    teacher: '赵老师',
-    cover: 'https://placehold.co/600x300/E74C3C/FFFFFF?text=课程封面',
-    type: '理论课程',
-    isRequired: true,
-    students: 32,
-    tasks: 17,
-    progress: 85,
-    semester: '2024-2'
-  }
-]);
-
-const filteredCourses = computed(() => {
-  let filtered = courses.value;
-  if (activeFilter.value !== 'all') {
-    filtered = filtered.filter(c => c.semester === activeFilter.value || (activeFilter.value === 'required' && c.isRequired));
-  }
-  if (searchQuery.value) {
-    filtered = filtered.filter(c => c.name.toLowerCase().includes(searchQuery.value.toLowerCase()));
-  }
-  return filtered;
+onMounted(() => {
+	contextStore.fetchCourseList();
 });
 
-const getProgressColor = (progress) => {
-  if (progress >= 80) return '#2ECC71'; // 绿色
-  if (progress >= 50) return '#4C8AF2'; // 主题蓝
-  return '#F39C12'; // 黄色
+// 辅助函数：类型转文本
+const getCourseTypeLabel = (typeId) => {
+  const map = { 1: '实训', 2: '活动', 3: '必修', 4: '选修', 5: '公共基础' };
+  return map[typeId] || '课程';
 };
 
-const goToCourse = (courseId) => {
-  console.log('Navigate to course:', courseId);
-  uni.navigateTo({
-    url: `/pages/index/CourseHomeView?courseId=${courseId}`
-  });
+// 辅助函数：进度颜色
+const getProgressColor = (progress) => {
+  if (progress >= 80) return '#2ECC71';
+  if (progress >= 50) return '#4C8AF2';
+  return '#F39C12';
+};
+
+// 筛选计算属性
+const filteredCourses = computed(() => {
+  let res = courseList.value || [];
+  
+  // 1. 类型筛选
+  if (activeFilter.value !== 0) {
+    res = res.filter(c => c.courseType === activeFilter.value);
+  }
+  
+  // 2. 搜索筛选
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase();
+    res = res.filter(c => c.courseName.toLowerCase().includes(q));
+  }
+  return res;
+});
+
+const handleEnterCourse = (courseId) => {
+  console.log('进入课程:', courseId);
+  // 1. 初始化上下文
+  contextStore.initCourseContext(courseId);
+  // 2. 跳转
+  uni.navigateTo({ url: '/pages/index/CourseHomeView' });
 };
 </script>
 
 <style lang="scss" scoped>
-// 假设 $theme-color: #4C8AF2; 定义在 uni.scss [cite: css_placement_guide.md]
+/* SCSS 样式定义 */
 $bg-color: #F4F7FA;
 $card-bg: #FFFFFF;
 $text-color: #333333;
 $text-light: #888888;
 $border-color: #EAEAEA;
+$theme-color: #4C8AF2;
 $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 
 .course-list-page {
@@ -215,12 +184,11 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	background: linear-gradient(180deg, #FFFFFF 0%, $bg-color 30%);
 }
 
-/* 头部 */
 .header-sticky {
 	position: sticky;
 	top: 0;
 	z-index: 50;
-	background: rgba(255, 255, 255, 0.85); // 玻璃拟态
+	background: rgba(255, 255, 255, 0.85);
 	backdrop-filter: blur(10px);
 	border-bottom: 1rpx solid $border-color;
 }
@@ -295,7 +263,6 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	}
 }
 
-/* 筛选 */
 .filter-container {
 	padding: 30rpx;
 }
@@ -318,6 +285,7 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 		border-radius: 20rpx;
 		font-size: 28rpx;
 		box-shadow: $shadow;
+		box-sizing: border-box;
 	}
 }
 .filter-scroll {
@@ -334,14 +302,13 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 		color: $text-light;
 		transition: all 0.2s;
 		&.active {
-			background: #4C8AF2; // $theme-color
+			background: $theme-color;
 			color: white;
 			box-shadow: 0 4rpx 10rpx rgba(76, 138, 242, 0.3);
 		}
 	}
 }
 
-/* 课程网格 */
 .course-grid {
 	padding: 0 30rpx 30rpx 30rpx;
 	display: flex;
@@ -363,9 +330,15 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 .card-image-wrapper {
 	position: relative;
 	height: 300rpx;
+	background: #eee;
 	.card-image {
 		width: 100%;
 		height: 100%;
+	}
+	.placeholder-img {
+		width: 100%;
+		height: 100%;
+		background: #E0E7FF;
 	}
 	.tag-base {
 		position: absolute;
@@ -381,6 +354,7 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 		@extend .tag-base;
 		top: 20rpx;
 		left: 20rpx;
+		background-color: #2ECC71;
 	}
 	.tag-top-right {
 		@extend .tag-base;
@@ -397,7 +371,6 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	color: $text-color;
 	margin-bottom: 10rpx;
 	display: block;
-	// line-clamp
 	overflow: hidden;
 	text-overflow: ellipsis;
 	display: -webkit-box;
@@ -412,6 +385,10 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 		font-size: 26rpx;
 		color: $text-light;
 		margin-left: 10rpx;
+	}
+	.card-semester {
+		font-size: 26rpx;
+		color: $text-light;
 	}
 }
 .card-stats {

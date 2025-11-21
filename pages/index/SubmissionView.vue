@@ -77,11 +77,11 @@
 							</view>
 							
 							<view class="contribution-control">
-								<view class="ctrl-btn" @click="userStore.updateContribution(member.id, -1)">
+								<view class="ctrl-btn" @click="contextStore.updateMemberContribution(member.id, -1)">
 									<uni-icons type="minus" size="14" color="#555"></uni-icons>
 								</view>
 								<text class="score-text">{{ member.contribution }}</text>
-								<view class="ctrl-btn" @click="userStore.updateContribution(member.id, 1)">
+								<view class="ctrl-btn" @click="contextStore.updateMemberContribution(member.id, 1)">
 									<uni-icons type="plus" size="14" color="#555"></uni-icons>
 								</view>
 							</view>
@@ -114,27 +114,26 @@
 <script setup>
 import { onMounted, ref, computed } from 'vue';
 import { storeToRefs } from 'pinia';
-// 引入两个 Store
-import { useUserStore } from '@/store/userStore';
+// [关键] 引入课程上下文 Store 和 提交 Store
+import { useCourseContextStore } from '@/store/courseContextStore';
 import { useSubmissionStore } from '@/store/submissionStore';
 
-// 初始化 Store
-const userStore = useUserStore();
+const contextStore = useCourseContextStore();
 const subStore = useSubmissionStore();
 
-// 1. 从 userStore 获取团队成员 (数据源头)
-const { teamMembers } = storeToRefs(userStore);
+// 1. 获取团队数据 (用于修改贡献度)
+const { teamMembers } = storeToRefs(contextStore);
 
-// 2. 从 submissionStore 获取文件和任务信息
+// 2. 获取文件上传数据
 const { uploadedFiles, isSubmitting, taskInfo } = storeToRefs(subStore);
 
-// 计算总贡献 (用于进度条分母)
+// 计算总贡献
 const totalContribution = computed(() => {
   const total = teamMembers.value.reduce((sum, m) => sum + m.contribution, 0);
   return total === 0 ? 1 : total;
 });
 
-// uCharts 雷达图数据 (自动响应 teamMembers 的变化)
+// uCharts 数据
 const radarChartData = computed(() => {
   return {
     categories: teamMembers.value.map(m => m.name),
@@ -145,7 +144,7 @@ const radarChartData = computed(() => {
   };
 });
 
-// uCharts 配置项
+// uCharts 配置
 const chartOpts = ref({
   color: ["#4C8AF2"],
   padding: [5, 5, 5, 5],
@@ -162,12 +161,11 @@ const chartOpts = ref({
   }
 });
 
-// 处理文件选择
+// 文件选择
 const handleFileSelect = () => {
   uni.showActionSheet({
-    itemList: ['选择文件 (模拟)'],
+    itemList: ['从手机选择 (模拟)'],
     success: () => {
-      // 模拟添加文件
       subStore.addFile({
         name: `Project_Source_${uploadedFiles.value.length + 1}.rar`,
         size: 1024 * 1024 * (Math.random() * 5 + 1)
@@ -176,7 +174,6 @@ const handleFileSelect = () => {
   });
 };
 
-// 格式化文件大小
 const formatFileSize = (bytes) => {
   if (bytes === 0) return '0 B';
   const k = 1024;
@@ -185,7 +182,6 @@ const formatFileSize = (bytes) => {
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 };
 
-// 提交处理
 const handleSubmit = async () => {
   try {
     await subStore.submitWork();
@@ -200,7 +196,6 @@ const goBack = () => uni.navigateBack();
 </script>
 
 <style lang="scss" scoped>
-/* SCSS 变量 */
 $bg-color: #F4F7FA;
 $card-bg: #FFFFFF;
 $text-color: #333333;
@@ -210,48 +205,25 @@ $theme-gradient: linear-gradient(135deg, #4C8AF2, #6C5BFF);
 $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 $border-color: #EAEAEA;
 
-.submission-page {
-	display: flex; flex-direction: column; height: 100vh; background-color: $bg-color;
-}
-
-/* 头部吸附 */
-.header-sticky {
-	position: sticky; top: 0; z-index: 20; background: #FFFFFF; box-shadow: $shadow;
-}
-.header-content {
-	display: flex; align-items: center; justify-content: space-between; padding: 0 24rpx; height: 88rpx;
-}
+.submission-page { display: flex; flex-direction: column; height: 100vh; background-color: $bg-color; }
+.header-sticky { position: sticky; top: 0; z-index: 20; background: #FFFFFF; box-shadow: $shadow; padding: 20rpx; }
+.header-content { display: flex; align-items: center; justify-content: space-between; height: 88rpx; }
 .icon-button { width: 80rpx; height: 80rpx; display: flex; align-items: center; justify-content: center; }
 .header-title { font-size: 34rpx; font-weight: bold; color: $text-color; }
-
 .page-scroll { flex: 1; height: 0; padding: 30rpx; box-sizing: border-box; padding-bottom: 60rpx; }
-
-/* 倒计时 */
-.countdown-card {
-	background: linear-gradient(135deg, #F97316, #EF4444); border-radius: 24rpx; padding: 40rpx; color: white; text-align: center; box-shadow: 0 10rpx 30rpx rgba(249, 115, 22, 0.3);
-}
+.countdown-card { background: linear-gradient(135deg, #F97316, #EF4444); border-radius: 24rpx; padding: 40rpx; color: white; text-align: center; box-shadow: 0 10rpx 30rpx rgba(249, 115, 22, 0.3); }
 .countdown-label { font-size: 26rpx; opacity: 0.9; margin-bottom: 10rpx; display: block; }
 .countdown-timer { font-size: 52rpx; font-weight: bold; margin: 10rpx 0; font-family: monospace; display: block; }
 .countdown-unit { font-size: 24rpx; opacity: 0.8; }
-
-/* 通用卡片 */
 .card-box { background: $card-bg; border-radius: 24rpx; padding: 30rpx; box-shadow: $shadow; margin-top: 30rpx; }
 .card-title-row { display: flex; align-items: center; gap: 16rpx; margin-bottom: 30rpx; }
 .card-title { font-size: 32rpx; font-weight: bold; color: $text-color; }
-
-/* 上传区 */
 .upload-tips { font-size: 24rpx; color: $text-light; margin-bottom: 20rpx; }
 .highlight-red { color: #E74C3C; font-weight: bold; }
 .highlight-bold { font-weight: bold; color: $text-color; }
-
-.upload-area {
-	background: #FAFAFA; border: 2rpx dashed $border-color; border-radius: 20rpx; padding: 50rpx; display: flex; flex-direction: column; align-items: center; gap: 16rpx; transition: all 0.2s;
-	&:active { background: #F0F0F0; border-color: $theme-color; }
-}
+.upload-area { background: #FAFAFA; border: 2rpx dashed $border-color; border-radius: 20rpx; padding: 50rpx; display: flex; flex-direction: column; align-items: center; gap: 16rpx; transition: all 0.2s; &:active { background: #F0F0F0; border-color: $theme-color; } }
 .upload-text { font-size: 28rpx; color: $text-color; font-weight: 500; }
 .upload-subtext { font-size: 24rpx; color: #AAAAAA; }
-
-/* 文件列表 */
 .file-list { margin-top: 30rpx; display: flex; flex-direction: column; gap: 20rpx; }
 .file-item { display: flex; align-items: center; justify-content: space-between; padding: 20rpx; background: #F5F7FA; border-radius: 16rpx; }
 .file-info-left { display: flex; align-items: center; gap: 20rpx; flex: 1; overflow: hidden; }
@@ -260,28 +232,18 @@ $border-color: #EAEAEA;
 .file-name { font-size: 28rpx; color: $text-color; margin-bottom: 4rpx; }
 .file-size { font-size: 22rpx; color: $text-light; }
 .delete-btn { padding: 16rpx; }
-
-/* 图表容器 */
 .charts-box { width: 100%; height: 500rpx; margin-bottom: 20rpx; }
-
-/* 成员列表 */
 .member-list { display: flex; flex-direction: column; gap: 30rpx; }
 .member-row { display: flex; flex-direction: column; gap: 16rpx; }
 .member-header { display: flex; justify-content: space-between; align-items: center; }
 .member-info { display: flex; align-items: center; gap: 16rpx; }
 .avatar-circle { width: 60rpx; height: 60rpx; border-radius: 50%; background: linear-gradient(135deg, #4C8AF2, #6C5BFF); color: white; font-size: 24rpx; display: flex; align-items: center; justify-content: center; font-weight: bold; }
 .member-name { font-size: 28rpx; font-weight: 500; color: $text-color; }
-
 .contribution-control { display: flex; align-items: center; gap: 16rpx; }
 .ctrl-btn { width: 44rpx; height: 44rpx; background: #F0F0F0; border-radius: 8rpx; display: flex; align-items: center; justify-content: center; &:active { background: #E0E0E0; } }
 .score-text { font-size: 28rpx; font-weight: bold; color: $theme-color; width: 50rpx; text-align: center; }
-
 .progress-track { height: 12rpx; background: #F0F0F0; border-radius: 6rpx; overflow: hidden; }
 .progress-bar { height: 100%; background: linear-gradient(90deg, #4C8AF2, #6C5BFF); border-radius: 6rpx; transition: width 0.3s ease; }
-
 .footer-action { margin-top: 20rpx; }
-.submit-button {
-	height: 96rpx; line-height: 96rpx; background: $theme-gradient; color: white; font-size: 32rpx; font-weight: bold; border-radius: 24rpx; box-shadow: 0 8rpx 20rpx rgba(76, 138, 242, 0.3);
-	&.disabled { background: #CCCCCC; box-shadow: none; color: #EEEEEE; }
-}
+.submit-button { height: 96rpx; line-height: 96rpx; background: $theme-gradient; color: white; font-size: 32rpx; font-weight: bold; border-radius: 24rpx; box-shadow: 0 8rpx 20rpx rgba(76, 138, 242, 0.3); &.disabled { background: #CCCCCC; box-shadow: none; color: #EEEEEE; } }
 </style>

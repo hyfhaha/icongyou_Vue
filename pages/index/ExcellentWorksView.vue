@@ -14,17 +14,17 @@
 
 		<scroll-view scroll-y class="page-scroll">
 			<view class="task-banner">
-				<text class="task-title">T4-1 爱从游（学生移动端）</text>
+				<text class="task-title">{{ currentTask.storyName }}</text>
 				<text class="task-desc">教师推荐优秀作业 · 可点赞收藏 · 支持下载附件</text>
 			</view>
 
-			<view class="work-card" v-for="work in works" :key="work.id">
+			<view class="work-card" v-for="work in excellentWorksList" :key="work.id">
 				<view class="work-header">
 					<view class="author-info">
-						<view class="avatar">{{ work.author.charAt(0) }}</view>
+						<view class="avatar">{{ work.avatarChar }}</view>
 						<view>
-							<text class="author-name">{{ work.author }}</text>
-							<text class="author-meta">{{ work.team }}</text>
+							<text class="author-name">{{ work.studentName }}</text>
+							<text class="author-meta">{{ work.teamName }}</text>
 						</view>
 					</view>
 					<view class="score-chip">
@@ -39,7 +39,7 @@
 
 				<view class="comment-box">
 					<text class="comment-label">教师评语</text>
-					<text class="comment-text">{{ work.comment }}</text>
+					<text class="comment-text">{{ work.teacherComment }}</text>
 				</view>
 
 				<view class="work-footer">
@@ -49,12 +49,12 @@
 					</view>
 					<view class="action-buttons">
 						<button class="icon-button small" @click="toggleLike(work.id)">
-							<uni-icons :type="work.liked ? 'heart-filled' : 'heart'" size="18" :color="work.liked ? '#E74C3C' : '#555'"></uni-icons>
+							<uni-icons :type="work.isLiked ? 'heart-filled' : 'heart'" size="18" :color="work.isLiked ? '#E74C3C' : '#555'"></uni-icons>
 							<text>{{ work.likes }}</text>
 						</button>
 						<button class="icon-button small" @click="toggleCollect(work.id)">
-							<uni-icons :type="work.collected ? 'star-filled' : 'star'" size="18" :color="work.collected ? '#FACC15' : '#555'"></uni-icons>
-							<text>{{ work.collected ? '已收藏' : '收藏' }}</text>
+							<uni-icons :type="work.isCollected ? 'star-filled' : 'star'" size="18" :color="work.isCollected ? '#FACC15' : '#555'"></uni-icons>
+							<text>{{ work.isCollected ? '已收藏' : '收藏' }}</text>
 						</button>
 					</view>
 				</view>
@@ -64,57 +64,35 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { onMounted } from 'vue';
+import { storeToRefs } from 'pinia';
+import { useCourseContextStore } from '@/store/courseContextStore';
 
-const works = ref([
-  {
-    id: 1,
-    title: '多课程导览交互稿',
-    summary: '通过卡片式导览设计实现课程概要、进度与热度的统一呈现，搭配学期标签支持快速筛选。',
-    author: '张晓雨',
-    team: '追梦小队',
-    score: 198,
-    comment: '清晰突出核心指标，交互逻辑符合工程认证的能力维度拆解，推荐同学参考落地实现。',
-    attachments: ['交互稿.fig', '说明文档.pdf'],
-    likes: 32,
-    liked: false,
-    collected: false
-  },
-  {
-    id: 2,
-    title: '任务数据可视化方案',
-    summary: '构建提交率、讨论热度双指标体系，并提供 AI 答疑入口，支持与优秀作业关联。',
-    author: '李晨',
-    team: '凌云队',
-    score: 194,
-    comment: '指标拆解完整，颜色体系突出重要程度，建议按照该方案完善 mobile 端图表。',
-    attachments: ['数据设计.xlsx'],
-    likes: 26,
-    liked: true,
-    collected: true
-  }
-]);
+const contextStore = useCourseContextStore();
+const { currentTask, excellentWorksList } = storeToRefs(contextStore);
+
+onMounted(() => {
+	if (currentTask.value.id) {
+		contextStore.fetchExcellentWorks(currentTask.value.id);
+	}
+});
 
 const goBack = () => {
   uni.navigateBack();
 };
 
+// 通过 Store 处理点赞收藏
 const toggleLike = (id) => {
-  works.value = works.value.map(work => {
-    if (work.id === id) {
-      const liked = !work.liked;
-      return { ...work, liked, likes: liked ? work.likes + 1 : work.likes - 1 };
-    }
-    return work;
-  });
+  contextStore.toggleWorkLike(id);
 };
 
 const toggleCollect = (id) => {
-  works.value = works.value.map(work => work.id === id ? { ...work, collected: !work.collected } : work);
+  contextStore.toggleWorkCollect(id);
 };
 </script>
 
 <style lang="scss" scoped>
+/* 复用 ExcellentWorksView 样式 */
 $bg-color: #F4F7FA;
 $card-bg: #FFFFFF;
 $text-color: #333333;
@@ -294,4 +272,3 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	gap: 10rpx;
 }
 </style>
-

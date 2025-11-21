@@ -1,43 +1,46 @@
 <template>
 	<view class="profile-page">
-		<!-- 头部背景 -->
 		<view class="header-bg">
 			<view class="profile-header">
 				<view class="avatar-wrapper">
-					<view class="avatar">
-						<text>{{ userProfile.name.charAt(0) }}</text>
+					<image 
+						v-if="userInfo.avatarUrl" 
+						:src="userInfo.avatarUrl" 
+						class="avatar-img" 
+						mode="aspectFill" 
+					/>
+					<view v-else class="avatar">
+						<text>{{ userInfo.nickname ? userInfo.nickname.charAt(0) : '未' }}</text>
 					</view>
+					
 					<view class="edit-button">
 						<uni-icons type="compose" size="14" color="#666"></uni-icons>
 					</view>
 				</view>
 				<view class="profile-info">
-					<text class="profile-name">{{ userProfile.name }}</text>
-					<text class="profile-meta">学号: {{ userProfile.studentId }}</text>
-					<text class="profile-meta">{{ userProfile.major }}</text>
+					<text class="profile-name">{{ userInfo.nickname }}</text>
+					<text class="profile-meta">学号: {{ userInfo.jobNumber }}</text>
+					<text class="profile-meta">软件工程专业</text>
 				</view>
 			</view>
 		</view>
 
-		<!-- 统计卡片 -->
 		<view class="stats-card">
 			<view class="stat-item">
-				<text class="stat-value" style="color: #4C8AF2;">{{ userProfile.courses }}</text>
+				<text class="stat-value" style="color: #4C8AF2;">{{ userStats.courseCount }}</text>
 				<text class="stat-label">课程数</text>
 			</view>
 			<view class="stat-item">
-				<text class="stat-value" style="color: #2ECC71;">{{ userProfile.completedTasks }}</text>
+				<text class="stat-value" style="color: #2ECC71;">{{ userStats.completedTasks }}</text>
 				<text class="stat-label">已完成</text>
 			</view>
 			<view class="stat-item">
-				<text class="stat-value" style="color: #9B59B6;">{{ userProfile.avgScore }}</text>
+				<text class="stat-value" style="color: #9B59B6;">{{ userStats.avgScore }}</text>
 				<text class="stat-label">平均分</text>
 			</view>
 		</view>
 
-		<!-- 菜单列表 -->
 		<scroll-view scroll-y="true" class="menu-scroll">
-			<!-- 账户设置 -->
 			<view class="menu-group">
 				<text class="group-title">账户设置</text>
 				<view class="menu-list">
@@ -58,7 +61,6 @@
 				</view>
 			</view>
 
-			<!-- 学习中心 -->
 			<view class="menu-group">
 				<text class="group-title">学习中心</text>
 				<view class="menu-list">
@@ -79,7 +81,6 @@
 				</view>
 			</view>
 			
-			<!-- 其他 -->
 			<view class="menu-group">
 				<text class="group-title">其他</text>
 				<view class="menu-list">
@@ -100,7 +101,6 @@
 				</view>
 			</view>
 
-			<!-- 退出登录 -->
 			<view class="button-wrapper">
 				<button class="logout-button" @click="handleLogout">
 					退出登录
@@ -111,20 +111,18 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { storeToRefs } from 'pinia';
+import { useAuthStore } from '@/store/authStore';
 
-const userProfile = ref({
-  name: '张三',
-  studentId: '2021001',
-  major: '软件工程专业',
-  courses: 6,
-  completedTasks: 45,
-  avgScore: 88
-});
+const authStore = useAuthStore();
+// 保持响应式
+const { userInfo, userStats } = storeToRefs(authStore);
 
-// 注意: SVG icon path 已被替换为 uni-icons 的 type 名称
+// 菜单定义
 const accountMenu = [
   { id: 'profile', label: '个人资料', icon: 'person', color: '#4C8AF2' },
+  // [新增] 关联 SettingsView
+  { id: 'settings', label: '系统设置', icon: 'gear', color: '#60A5FA' },
   { id: 'password', label: '修改密码', icon: 'locked', color: '#6C5BFF' }
 ];
 
@@ -137,20 +135,40 @@ const learningMenu = [
 
 const settingsMenu = [
   { id: 'notifications', label: '消息通知', icon: 'notification', color: '#F97316' },
- { id: 'settings', label: '系统设置', icon: 'gear', color: '#60A5FA' },
- { id: 'help', label: '帮助中心', icon: 'help', color: '#06B6D4' },
+  { id: 'help', label: '帮助中心', icon: 'help', color: '#06B6D4' },
   { id: 'about', label: '关于我们', icon: 'info', color: '#888888' }
 ];
 
 const handleMenuClick = (id) => {
-	if (id === 'settings') uni.navigateTo({ url: '/pages/index/SettingsView' });
   console.log('Menu clicked:', id);
-  // uni.navigateTo(...)
+  if (id === 'settings') {
+      // [修复] 跳转到设置页
+      uni.navigateTo({ url: '/pages/index/SettingsView' });
+  } else if (id === 'my-courses') {
+      // 跳转到底部栏的课程页
+      uni.switchTab({ url: '/pages/index/CourseListView' });
+  } else {
+      // 其他占位
+      uni.showToast({ title: '功能开发中', icon: 'none' });
+  }
 };
 
 const handleLogout = () => {
-  console.log('Logout');
-  // uni.reLaunch({ url: '/pages/auth/Login' });
+  uni.showModal({
+      title: '提示',
+      content: '确认退出当前登录吗？',
+      success: (res) => {
+          if (res.confirm) {
+              // 调用 store 的 logout 清理数据
+              authStore.logout();
+              
+              // 强制跳转回登录页 (关闭所有页面)
+              uni.reLaunch({
+                  url: '/pages/index/LoginView'
+              });
+          }
+      }
+  });
 };
 </script>
 
@@ -195,9 +213,16 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 		text {
 			font-size: 60rpx;
 			font-weight: bold;
-			color: #4C8AF2; // $theme-color
+			color: #4C8AF2; 
 		}
 	}
+    .avatar-img {
+        width: 160rpx;
+        height: 160rpx;
+        border-radius: 50%;
+        background: $card-bg;
+        box-shadow: 0 4rpx 10rpx rgba(0,0,0,0.1);
+    }
 	.edit-button {
 		position: absolute;
 		bottom: 0;
@@ -218,11 +243,13 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 		font-size: 44rpx;
 		font-weight: bold;
 		margin-bottom: 12rpx;
+        display: block;
 	}
 	.profile-meta {
 		font-size: 26rpx;
 		color: #E0E7FF;
 		display: block;
+        margin-top: 4rpx;
 	}
 }
 
@@ -244,6 +271,7 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 		font-size: 48rpx;
 		font-weight: bold;
 		margin-bottom: 4rpx;
+        display: block;
 	}
 	.stat-label {
 		font-size: 24rpx;
@@ -266,6 +294,7 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 		font-weight: 500;
 		margin-bottom: 16rpx;
 		padding: 0 20rpx;
+        display: block;
 	}
 }
 .menu-list {
@@ -309,6 +338,7 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 
 .button-wrapper {
 	padding-top: 20rpx;
+    padding-bottom: 40rpx;
 }
 .logout-button {
 	width: 100%;

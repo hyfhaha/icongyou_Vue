@@ -1,6 +1,5 @@
 <template>
 	<view class="login-container">
-		<!-- 动态背景 -->
 		<view class="bg-blur-shapes">
 			<view class="shape s1"></view>
 			<view class="shape s2"></view>
@@ -8,17 +7,14 @@
 		</view>
 
 		<view class="content-wrapper">
-			<!-- Logo 区 -->
 			<view class="logo-section">
 				<view class="logo-bg">
-					<!-- 这里使用简单的图标占位 -->
 					<uni-icons type="person-filled" size="40" color="#FFFFFF"></uni-icons>
 				</view>
 				<text class="title">爱从游</text>
 				<text class="subtitle">学生学习管理平台</text>
 			</view>
 
-			<!-- 登录卡片 -->
 			<view class="login-card">
 				<text class="card-title">登录账户</text>
 				
@@ -44,7 +40,6 @@
 						<text 
 							class="eye-icon"
 							@click="showPassword = !showPassword">
-							<!-- 模拟眼睛图标 -->
 							{{ showPassword ? '🙈' : '👁️' }}
 						</text>
 					</view>
@@ -52,13 +47,17 @@
 				
 				<view class="options-row">
 					<label class="remember-me">
-						<checkbox :checked="loginForm.remember" @click="loginForm.remember = !loginForm.remember" style="transform:scale(0.7)" color="#4C8AF2" />
+						<checkbox 
+							:checked="loginForm.remember" 
+							@click="loginForm.remember = !loginForm.remember" 
+							style="transform:scale(0.7)" 
+							color="#4C8AF2" 
+						/>
 						<text class="remember-text">记住我</text>
 					</label>
 					<text class="forgot-password">忘记密码？</text>
 				</view>
 
-				<!-- 登录按钮 -->
 				<button 
 					class="login-button" 
 					:loading="loading" 
@@ -68,7 +67,6 @@
 					{{ loading ? '登录中...' : '登录' }}
 				</button>
 
-				<!-- [新增] 直接进入/游客访问入口 -->
 				<button 
 					class="guest-button" 
 					@click="handleGuestLogin"
@@ -77,7 +75,6 @@
 				</button>
 			</view>
 			
-			<!-- Footer -->
 			<text class="footer-text">© 2025 爱从游. 保留所有权利</text>
 		</view>
 	</view>
@@ -85,9 +82,12 @@
 
 <script setup>
 import { ref } from 'vue';
+import { useAuthStore } from '@/store/authStore';
+
+const authStore = useAuthStore();
 
 const loginForm = ref({
-  studentId: '',
+  studentId: '', // 对应 authStore 中的 jobNumber
   password: '',
   remember: false
 });
@@ -107,27 +107,54 @@ const handleLogin = async () => {
 
   loading.value = true;
   
-  // 模拟 API 调用
+  // 模拟 API 调用延迟
   setTimeout(() => {
     loading.value = false;
-    console.log('Login success:', loginForm.value);
+    
+    // [关键] 调用 Store 的 login action 更新全局状态
+    // 这里模拟后端返回的用户信息
+    authStore.login({
+        id: 101,
+        username: 'student_user',
+        nickname: '张三', // 模拟从数据库查到的名字
+        jobNumber: loginForm.value.studentId, // 使用用户输入的学号
+        avatarUrl: '', // 空字符串会显示默认头像
+        deptId: 2021, // 模拟班级ID
+        userRole: 0   // 0代表学生
+    });
+    
+    uni.showToast({ title: '登录成功', icon: 'success' });
     
     // 登录成功跳转 (因为是 TabBar 页面，必须用 switchTab)
-    uni.switchTab({
-      url: '/pages/index/CourseListView'
-    });
+    setTimeout(() => {
+        uni.switchTab({
+          url: '/pages/index/CourseListView'
+        });
+    }, 500);
     
   }, 1000);
 };
 
-// [新增] 游客/直接进入逻辑
+// [保留] 游客/直接进入逻辑
 const handleGuestLogin = () => {
+  // 即使是游客，也需要在 Store 里设置一个“体验账号”的状态
+  // 否则进入个人中心会显示“未登录”
+  authStore.login({
+      id: 999,
+      username: 'guest',
+      nickname: '体验用户',
+      jobNumber: 'GUEST-001',
+      avatarUrl: '',
+      deptId: 0,
+      userRole: 0
+  });
+
   uni.showToast({
     title: '欢迎进入体验模式',
     icon: 'none'
   });
   
-  // 直接跳转到主页 (TabBar)
+  // 直接跳转到主页
   setTimeout(() => {
     uni.switchTab({
       url: '/pages/index/CourseListView'
@@ -137,7 +164,7 @@ const handleGuestLogin = () => {
 </script>
 
 <style lang="scss" scoped>
-/* 引用全局变量 (假设在 uni.scss 中定义) */
+/* 引用全局变量 */
 $theme-color: #4C8AF2;
 
 /* 主容器 */

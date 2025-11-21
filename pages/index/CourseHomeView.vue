@@ -6,15 +6,14 @@
 					<uni-icons type="left" size="24" color="#555555"></uni-icons>
 				</view>
 				<view class="header-text">
-					<text class="header-title">{{ courseDetail.name }}</text>
-					<text class="header-subtitle">{{ courseDetail.semester }} · {{ courseDetail.teacher }}</text>
+					<text class="header-title">{{ currentCourse.courseName }}</text>
+					<text class="header-subtitle">{{ currentCourse.semester }} · {{ currentCourse.teacher }}</text>
 				</view>
 				<view class="icon-button"></view>
 			</view>
 		</view>
 
 		<scroll-view scroll-y="true" class="page-scroll">
-			
 			<view class="card-box highlight-card">
 				<view class="card-title-row">
 					<uni-icons type="list" size="20" color="#2ECC71"></uni-icons>
@@ -23,17 +22,21 @@
 
 				<view class="completion-section">
 					<view class="completion-chart">
-						<text class="completion-rate">{{ completionRate }}%</text>
+						<text class="completion-rate">{{ taskStats.completionRate }}%</text>
 						<text class="completion-label">整体完成率</text>
 					</view>
 					<view class="completion-stats">
 						<view class="stat-row">
 							<text>已完成任务</text>
-							<text class="stat-num">{{ courseDetail.completedTasks }}</text>
+							<text class="stat-num">{{ taskStats.completedTasks }}</text>
 						</view>
 						<view class="stat-row">
 							<text>待完成任务</text>
-							<text class="stat-num warning">{{ courseDetail.totalTasks - courseDetail.completedTasks }}</text>
+							<text class="stat-num warning">{{ taskStats.totalTasks - taskStats.completedTasks }}</text>
+						</view>
+						<view class="stat-row">
+							<text>总任务数</text>
+							<text class="stat-num">{{ taskStats.totalTasks }}</text>
 						</view>
 					</view>
 				</view>
@@ -43,7 +46,6 @@
 						<uni-icons type="map-filled" size="20" color="#FFFFFF"></uni-icons>
 						<text>进入任务地图</text>
 					</button>
-					
 					<button class="button-outline" @click="goDataDashboard">
 						<uni-icons type="pie-chart-filled" size="20" color="#4C8AF2"></uni-icons>
 						<text>查看数据页面</text>
@@ -68,52 +70,38 @@
 					</view>
 				</view>
 			</view>
-
 		</scroll-view>
 	</view>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { onMounted } from 'vue';
+import { storeToRefs } from 'pinia';
+import { useCourseContextStore } from '@/store/courseContextStore';
 
-const courseDetail = ref({
-  id: 1,
-  name: '软件产品构建实训',
-  semester: '2025 春季',
-  teacher: '张老师',
-  totalTasks: 18,
-  completedTasks: 12
-});
+const contextStore = useCourseContextStore();
+// 获取当前课程和任务统计数据
+const { currentCourse, taskStats } = storeToRefs(contextStore);
 
-const completionRate = computed(() => {
-  if (!courseDetail.value.totalTasks) return 0;
-  return Math.round((courseDetail.value.completedTasks / courseDetail.value.totalTasks) * 100);
+// onMounted 中通常不需要再 initCourseContext，因为在列表页点击时已经初始化了
+// 除非支持直接通过 URL 分享进入，可以加一个判断
+onMounted(() => {
+  // 如果 Store 里没有数据（比如刷新了），可以尝试用默认 ID 初始化
+  if (!currentCourse.value.courseId) {
+    contextStore.initCourseContext(1001);
+  }
 });
 
 const goBack = () => {
   const pages = getCurrentPages();
-  if (pages.length > 1) {
-    uni.navigateBack();
-  } else {
-    uni.switchTab({ url: '/pages/index/CourseListView' });
-  }
+  if (pages.length > 1) uni.navigateBack();
+  else uni.switchTab({ url: '/pages/index/CourseListView' });
 };
 
-const goTaskMap = () => {
-  uni.navigateTo({ url: '/pages/index/TaskKanbanView' });
-};
-
-const goDataDashboard = () => {
-  uni.navigateTo({ url: '/pages/index/DataDashboardView' });
-};
-
-const goExcellent = () => {
-  uni.navigateTo({ url: '/pages/index/ExcellentWorksView' });
-};
-
-const goAITutor = () => {
-  uni.navigateTo({ url: '/pages/index/AITutorView' });
-};
+const goTaskMap = () => uni.navigateTo({ url: '/pages/index/TaskKanbanView' });
+const goDataDashboard = () => uni.navigateTo({ url: '/pages/index/DataDashboardView' });
+const goExcellent = () => uni.navigateTo({ url: '/pages/index/ExcellentWorksView' });
+const goAITutor = () => uni.navigateTo({ url: '/pages/index/AITutorView' });
 </script>
 
 <style lang="scss" scoped>
@@ -136,12 +124,12 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	z-index: 20;
 	background: #FFFFFF;
 	box-shadow: $shadow;
+	padding: 20rpx;
 }
 .header-content {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 0 24rpx;
 	height: 88rpx;
 }
 .icon-button { width: 80rpx; height: 80rpx; display: flex; align-items: center; justify-content: center; }
@@ -159,7 +147,7 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 
 .completion-section { display: flex; align-items: center; gap: 40rpx; margin-bottom: 40rpx; }
 .completion-chart {
-	width: 180rpx; height: 180rpx; border-radius: 50%; background: #F0F4FF; border: 10rpx solid #E0E7FF;
+	width: 180rpx; height: 180rpx; background: #F0F4FF; border-radius: 50%; border: 10rpx solid #E0E7FF;
 	display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
 .completion-rate { font-size: 48rpx; font-weight: bold; color: $theme-color; }
@@ -183,7 +171,9 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 
 .section-header { font-size: 28rpx; font-weight: bold; margin-bottom: 20rpx; display: block; }
 .quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20rpx; }
-.quick-item { background: #F9FAFB; border-radius: 20rpx; padding: 30rpx; display: flex; align-items: center; gap: 20rpx; }
+.quick-item {
+	background: #F9FAFB; border-radius: 20rpx; padding: 30rpx; display: flex; align-items: center; gap: 20rpx;
+}
 .quick-icon {
 	width: 80rpx; height: 80rpx; border-radius: 16rpx; display: flex; align-items: center; justify-content: center;
 	&.pink { background: linear-gradient(135deg, #F472B6, #EC4899); }
