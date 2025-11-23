@@ -20,7 +20,7 @@
 						<view class="meta-row">
 							<view class="meta-tag">
 								<uni-icons type="staff-filled" size="14" color="#FFFFFF"></uni-icons>
-								<text>团队任务</text>
+								<text>{{ getTaskTypeLabel(currentTask.storyType) }}</text>
 							</view>
 							<view class="meta-tag">
 								<uni-icons type="paperplane-filled" size="14" color="#FFFFFF"></uni-icons>
@@ -30,7 +30,7 @@
 					</view>
 					<view class="header-right">
 						<view class="rating-badge">
-							<text>⭐⭐⭐ 正常</text>
+							<text>进行中</text>
 						</view>
 						<text class="meta-text">提交 1次</text>
 					</view>
@@ -56,21 +56,33 @@
 					</view>
 					<view class="info-item">
 						<text class="info-label">任务类型</text>
-						<text class="info-value">团队(队长交)</text>
+						<text class="info-value">{{ getTaskTypeLabel(currentTask.storyType) }}</text>
 					</view>
 					<view class="info-item">
 						<text class="info-label">任务总分</text>
 						<text class="info-value">{{ currentTask.totalScore }}</text>
 					</view>
 					<view class="info-item">
-						<text class="info-label">提交次数</text>
+						<text class="info-label">提交限制</text>
 						<text class="info-value">1次</text>
 					</view>
 					<view class="info-item">
 						<text class="info-label">是否必做</text>
 						<text class="info-value" style="color: #2ECC71;">是</text>
 					</view>
+					<view class="info-item">
+						<text class="info-label">作业性质</text>
+						<text class="info-value">任务剧团队内提交</text>
 					</view>
+					<view class="info-item">
+						<text class="info-label">开始时间</text>
+						<text class="info-value">未设定</text>
+					</view>
+					<view class="info-item">
+						<text class="info-label">任务解锁</text>
+						<text class="info-value">不上锁</text>
+					</view>
+				</view>
 			</view>
 
 			<view class="card-box">
@@ -83,7 +95,7 @@
 						<view class="req-number"><text>1</text></view>
 						<text class="req-text">{{ currentTask.storyDesc }}</text>
 					</view>
-					</view>
+				</view>
 			</view>
 
 			<view class="card-box">
@@ -106,8 +118,13 @@
 			</view>
 
 			<view class="button-group">
-				<button class="button-primary" @click="openSubmitModal">
-					<text>提交作业</text>
+				<button 
+					class="button-primary" 
+					:disabled="!permission.allowed" 
+					:class="{ disabled: !permission.allowed }"
+					@click="openSubmitModal"
+				>
+					<text>{{ permission.allowed ? '提交作业' : permission.reason }}</text>
 				</button>
 				
 				<button class="button-secondary" @click="goAIHelper">
@@ -125,39 +142,54 @@
 </template>
 
 <script setup>
+import { computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useCourseContextStore } from '@/store/courseContextStore';
 
 const contextStore = useCourseContextStore();
-// 从 Store 获取当前选中的任务详情
 const { currentTask } = storeToRefs(contextStore);
+
+// [新增] 计算权限
+const permission = computed(() => {
+    return contextStore.checkSubmissionPermission();
+});
+
+// [新增] 任务类型标签转换
+const getTaskTypeLabel = (type) => {
+    const map = { 1: '个人任务', 2: '团队(队长)', 3: '团队(全员)' };
+    return map[type] || '普通任务';
+};
 
 const goBack = () => {
 	uni.navigateBack();
 };
 
 const openSubmitModal = () => {
-	// 跳转到提交页面
+	// [新增] 再次防守逻辑，防止绕过 UI 禁用点击
+	if (!permission.value.allowed) {
+		uni.showToast({ title: permission.value.reason, icon: 'none' });
+		return;
+	}
+	
 	uni.navigateTo({
-		url: '/pages/index/SubmissionView'
+		url: '/pages/index/SubmissionView?taskId=T4-1'
 	});
 };
 
 const goAIHelper = () => {
 	uni.navigateTo({
-		url: '/pages/index/AITutorView'
+		url: '/pages/index/AITutorView?taskId=T4-1'
 	});
 };
 
 const goExcellentWorks = () => {
 	uni.navigateTo({
-		url: '/pages/index/ExcellentWorksView'
+		url: '/pages/index/ExcellentWorksView?taskId=T4-1'
 	});
 };
 </script>
 
 <style lang="scss" scoped>
-/* 完全复用您提供的 TaskDetailView.vue 样式 */
 $bg-color: #F4F7FA;
 $card-bg: #FFFFFF;
 $text-color: #333333;
@@ -418,6 +450,13 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 		background: linear-gradient(135deg, #4C8AF2, #6C5BFF);
 		color: white;
 		box-shadow: 0 8rpx 20rpx rgba(76, 138, 242, 0.3);
+	}
+	
+	/* [新增] 禁用状态样式 */
+	.button-primary.disabled {
+		background: #E0E0E0;
+		color: #999;
+		box-shadow: none;
 	}
 	
 	.button-secondary {
