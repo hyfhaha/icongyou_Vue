@@ -1,33 +1,42 @@
 // api/course.js
 import request from '@/utils/request';
 
-// 1. 获取我的课程列表 (总览)
+// 1. 多课程检索（含公共课程、关键词搜索）
+export function searchCourses(params = {}) {
+  return request.get('/api/courses', params);
+}
+
+// 2. 获取我的课程总览
 export function getCourseList(params = {}) {
-  // params: { page, pageSize }
   return request.get('/api/courses/overview', params);
 }
 
-// 2. 获取单课程基础信息
+// 3. 单课程基础信息 + 任务列表
 export function getCourseDetail(id) {
   return request.get(`/api/courses/${id}`);
 }
 
-// 3. 获取课程地图元数据 (Goals, Epics, Releases) - 核心接口
-export function getCourseMapMetadata(id) {
-  return request.get(`/api/courses/${id}/map-metadata`);
-}
-
-// 4. 获取课程内个人数据总览 (排名/得分)
+// 4. 课程内个人统计
 export function getCoursePersonalStats(id) {
   return request.get(`/api/courses/${id}/personal`);
 }
 
-// 5. 获取能力维度达成情况 (雷达图数据)
+// 5. 课程任务完成度
+export function getCourseTaskStatus(id, scope = 'me') {
+  return request.get(`/api/courses/${id}/tasks/status`, { scope });
+}
+
+// 6. 课程内排行榜
+export function getCourseLeaderboard(id) {
+  return request.get(`/api/courses/${id}/students`);
+}
+
+// 7. 能力维度
 export function getCourseAbilities(id) {
   return request.get(`/api/courses/${id}/abilities/me`);
 }
 
-// 6. 获取课程排行榜
-export function getCourseLeaderboard(id) {
-  return request.get(`/api/courses/${id}/students`);
+// 8. 课程地图元数据
+export function getCourseMapMetadata(id) {
+  return request.get(`/api/courses/${id}/map-metadata`);
 }

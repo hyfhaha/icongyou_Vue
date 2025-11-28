@@ -48,7 +48,18 @@
 			</scroll-view>
 		</view>
 
-		<view class="course-grid">
+		<!-- [新增] 加载状态 -->
+		<view v-if="courseListLoading" class="status-container">
+			<text class="status-text">正在加载课程...</text>
+		</view>
+
+		<!-- [新增] 空状态 -->
+		<view v-else-if="!courseList.length" class="status-container">
+			<text class="status-text">暂无课程，下拉刷新试试</text>
+		</view>
+
+		<!-- 课程列表 -->
+		<view v-else class="course-grid">
 			<view
 				v-for="course in filteredCourses"
 				:key="course.courseId"
@@ -109,14 +120,15 @@
 import { ref, computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useCourseContextStore } from '@/store/courseContextStore';
+import { onPullDownRefresh, onShow } from '@dcloudio/uni-app';
 
 const contextStore = useCourseContextStore();
-const { courseList } = storeToRefs(contextStore);
+// [修改] 引入加载状态
+const { courseList, courseListLoading } = storeToRefs(contextStore);
 
 const searchQuery = ref('');
 const activeFilter = ref(0); // 0=全部
 
-// 对应数据库 course_type 定义
 const filters = [
   { value: 0, label: '全部' },
   { value: 1, label: '实训' },
@@ -126,33 +138,38 @@ const filters = [
   { value: 5, label: '公共基础' }
 ];
 
-onMounted(() => {
-	contextStore.fetchCourseList();
+// [修改] 使用 onShow 代替 onMounted，确保每次进入页面都可能刷新
+onShow(() => {
+	// 如果列表为空，则自动加载
+	if (courseList.value.length === 0) {
+		contextStore.fetchCourseList();
+	}
 });
 
-// 辅助函数：类型转文本
+// [新增] 下拉刷新
+onPullDownRefresh(async () => {
+    await contextStore.fetchCourseList();
+    uni.stopPullDownRefresh();
+});
+
 const getCourseTypeLabel = (typeId) => {
   const map = { 1: '实训', 2: '活动', 3: '必修', 4: '选修', 5: '公共基础' };
   return map[typeId] || '课程';
 };
 
-// 辅助函数：进度颜色
 const getProgressColor = (progress) => {
   if (progress >= 80) return '#2ECC71';
   if (progress >= 50) return '#4C8AF2';
   return '#F39C12';
 };
 
-// 筛选计算属性
 const filteredCourses = computed(() => {
   let res = courseList.value || [];
   
-  // 1. 类型筛选
   if (activeFilter.value !== 0) {
     res = res.filter(c => c.courseType === activeFilter.value);
   }
   
-  // 2. 搜索筛选
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase();
     res = res.filter(c => c.courseName.toLowerCase().includes(q));
@@ -160,17 +177,20 @@ const filteredCourses = computed(() => {
   return res;
 });
 
-const handleEnterCourse = (courseId) => {
-  console.log('进入课程:', courseId);
-  // 1. 初始化上下文
-  contextStore.initCourseContext(courseId);
-  // 2. 跳转
-  uni.navigateTo({ url: '/pages/index/CourseHomeView' });
+const handleEnterCourse = async (courseId) => {
+  uni.showLoading({ title: '正在加载课程...' });
+  try {
+    await contextStore.initCourseContext(courseId);
+    uni.hideLoading();
+    uni.navigateTo({ url: '/pages/index/CourseHomeView' });
+  } catch (error) {
+    uni.hideLoading();
+    uni.showToast({ title: '进入课程失败', icon: 'none' });
+  }
 };
 </script>
 
 <style lang="scss" scoped>
-/* SCSS 样式定义 */
 $bg-color: #F4F7FA;
 $card-bg: #FFFFFF;
 $text-color: #333333;
@@ -306,6 +326,18 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 			color: white;
 			box-shadow: 0 4rpx 10rpx rgba(76, 138, 242, 0.3);
 		}
+	}
+}
+
+/* [新增] 加载和空状态容器 */
+.status-container {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	padding: 100rpx 0;
+	.status-text {
+		font-size: 28rpx;
+		color: $text-light;
 	}
 }
 

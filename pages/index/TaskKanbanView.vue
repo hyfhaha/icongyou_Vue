@@ -41,7 +41,7 @@
 							<text class="corner-text">任务集合</text>
 						</view>
 						<view 
-							v-for="epic in mapMetaData.epics" 
+							v-for="epic in displayEpics" 
 							:key="epic.id" 
 							class="matrix-cell epic-cell"
 						>
@@ -61,7 +61,7 @@
 						</view>
 
 						<view 
-							v-for="(epic, cIndex) in mapMetaData.epics" 
+							v-for="(epic, cIndex) in displayEpics" 
 							:key="epic.id" 
 							class="matrix-cell task-cell"
 						>
@@ -129,6 +129,31 @@ import { useCourseContextStore } from '@/store/courseContextStore';
 const contextStore = useCourseContextStore();
 const { taskNodes, mapMetaData } = storeToRefs(contextStore);
 
+// [修复与优化] 动态计算史诗列，以防元数据不完整导致任务无法显示
+const displayEpics = computed(() => {
+	const epics = mapMetaData.value.epics || [];
+	const nodes = taskNodes.value || [];
+
+	if (nodes.length === 0) {
+		return epics;
+	}
+
+	// 找到最大的 x 坐标 (0-indexed)
+	const maxTaskX = Math.max(-1, ...nodes.map(n => n.x));
+	const requiredCols = maxTaskX + 1;
+
+	if (requiredCols > epics.length) {
+		const placeholders = Array.from({ length: requiredCols - epics.length }, (_, i) => ({
+			id: `ph-${i}`,
+			name: '未命名集合',
+			placeholder: true
+		}));
+		return [...epics, ...placeholders];
+	}
+
+	return epics;
+});
+
 const selectedTask = ref(null);
 const touchStart = ref({ x: 0, y: 0 });
 
@@ -178,10 +203,12 @@ const moveToNeighbor = (direction) => {
   let next = null;
   const cx = current.x, cy = current.y;
 
-  if (direction === 'left') next = candidates.filter(t => t.y === cy && t.x < cx).sort((a, b) => b.x - a.x)[0];
-  else if (direction === 'right') next = candidates.filter(t => t.y === cy && t.x > cx).sort((a, b) => a.x - b.x)[0];
-  else if (direction === 'up') next = candidates.filter(t => t.x === cx && t.y < cy).sort((a, b) => b.y - a.y)[0];
-  else if (direction === 'down') next = candidates.filter(t => t.x === cx && t.y > cy).sort((a, b) => a.y - b.y)[0];
+  // 反转逻辑：向左滑动显示右侧任务，向右滑动显示左侧任务
+  // 向上滑动显示下方任务，向下滑动显示上方任务
+  if (direction === 'left') next = candidates.filter(t => t.y === cy && t.x > cx).sort((a, b) => a.x - b.x)[0];
+  else if (direction === 'right') next = candidates.filter(t => t.y === cy && t.x < cx).sort((a, b) => b.x - a.x)[0];
+  else if (direction === 'up') next = candidates.filter(t => t.x === cx && t.y > cy).sort((a, b) => a.y - b.y)[0];
+  else if (direction === 'down') next = candidates.filter(t => t.x === cx && t.y < cy).sort((a, b) => b.y - a.y)[0];
 
   if (next) selectedTask.value = next;
   else uni.showToast({ title: '无相邻任务', icon: 'none', duration: 800 });

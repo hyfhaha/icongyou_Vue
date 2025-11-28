@@ -33,3 +33,8 @@ export function uploadFile(tempFilePath) {
     });
   });
 }
+
+// 获取 OSS STS 临时凭证
+export function getOssStsToken() {
+  return RequestConfig.get('/api/oss/sts-token');
+}

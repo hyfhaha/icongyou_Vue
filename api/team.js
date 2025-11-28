@@ -1,12 +1,42 @@
 // api/team.js
 import request from '@/utils/request';
 
-// 1. 获取我加入的所有团队 (用于在课程页筛选我的团队)
+// 当前用户加入的团队
 export function getMyTeams() {
   return request.get('/api/teams/user');
 }
 
-// 2. 获取指定团队的成员列表 (含贡献度)
+// 课程下全部团队
+export function getCourseTeams(courseId) {
+  return request.get(`/api/teams/course/${courseId}`);
+}
+
+// 创建团队
+export function createTeam(courseId, data) {
+  return request.post(`/api/teams/course/${courseId}`, data);
+}
+
+// 加入团队
+export function joinTeam(teamId, data = {}) {
+  return request.post(`/api/teams/${teamId}/join`, data);
+}
+
+// 退出团队
+export function quitTeam(teamId) {
+  return request.post(`/api/teams/${teamId}/quit`);
+}
+
+// 团队成员列表
+export function getTeamMembers(teamId) {
+  return request.get(`/api/teams/${teamId}/members`);
+}
+
+// 团队维度成绩（某任务）
+export function getTeamScoresByTask(storyId) {
+  return request.get(`/api/teams/${storyId}`);
+}
+
+// 团队成员成绩与贡献度
 export function getTeamDetail(teamId) {
   return request.get(`/api/teams/detail/${teamId}`);
 }

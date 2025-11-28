@@ -1,89 +1,83 @@
 {
 	"pages": [
 		{
-			// 启动页：登录页
+
 			"path": "pages/index/LoginView",
 			"style": {
 				"navigationBarTitleText": "登录"
 			}
 		},
 		{
-			// 课程列表 (Tab)
+
 			"path": "pages/index/CourseListView",
 			"style": {
 				"navigationBarTitleText": "我的课程"
 			}
 		},
 		{
-			// 单课程个人主页
+
 			"path": "pages/index/CourseHomeView",
 			"style": {
 				"navigationBarTitleText": "课程总览"
 			}
 		},
 		{
-			// 任务看板
+
 			"path": "pages/index/TaskKanbanView",
 			"style": {
 				"navigationBarTitleText": "任务看板"
 			}
 		},
 		{
-			// 任务数据看板
+
 			"path": "pages/index/TaskAnalyticsView",
 			"style": {
 				"navigationBarTitleText": "任务数据看板"
 			}
 		},
 		{
-			// 任务详情
+
 			"path": "pages/index/TaskDetailView",
 			"style": {
 				"navigationBarTitleText": "任务详情"
 			}
 		},
 		{
-			// 优秀作业展示
+
 			"path": "pages/index/ExcellentWorksView",
 			"style": {
 				"navigationBarTitleText": "优秀作业"
 			}
 		},
 		{
-			// AI 互动讨论
+
 			"path": "pages/index/AITutorView",
 			"style": {
 				"navigationBarTitleText": "AI 互动"
 			}
 		},
 		{
-			// 提交作业
+
 			"path": "pages/index/SubmissionView",
 			"style": {
 				"navigationBarTitleText": "提交作业"
 			}
 		},
-		/*{
-			// 我的团队 (Tab)
-			"path": "pages/index/TeamView",
-			"style": {
-				"navigationBarTitleText": "我的团队"
-			}
-		},*/
+
 		{
-			// 个人中心 (Tab)
+
 			"path": "pages/index/ProfileView",
 			"style": {
 				"navigationBarTitleText": "个人中心"
 			}
 		},
 		{
-            // [新增] 数据中心页面
+
 			"path": "pages/index/DataDashboardView",
 			"style": { "navigationBarTitleText": "数据中心" }
 		},
 		{
-			// 设置
+
 			"path": "pages/index/SettingsView",
 			"style": {
 				"navigationBarTitleText": "设置"
@@ -95,7 +89,6 @@
 		"navigationBarTitleText": "爱从游",
 		"navigationBarBackgroundColor": "#FFFFFF",
 		"backgroundColor": "#F4F7FA",
-		// 关键：设置为 "custom" 以隐藏默认导航栏
 		"navigationStyle": "custom"
 	},
 	"tabBar": {
@@ -110,12 +103,7 @@
 				"iconPath": "static/tabs/courses.png",
 				"selectedIconPath": "static/tabs/courses_active.png"
 			},
-			/*{
-				"pagePath": "pages/index/TeamView",
-				"text": "团队",
-				"iconPath": "static/tabs/team.png",
-				"selectedIconPath": "static/tabs/team_active.png"
-			},*/
+
 			{
 				"pagePath": "pages/index/ProfileView",
 				"text": "我的",

@@ -30,7 +30,7 @@
 				<view class="upload-area" @click="handleFileSelect">
 					<uni-icons type="folder-add" size="48" color="#CCCCCC"></uni-icons>
 					<text class="upload-text">点击选择文件上传</text>
-					<text class="upload-subtext">支持 .rar, .mp4 格式</text>
+					<text class="upload-subtext" v-if="taskInfo.allowedTypes.length">支持 {{ taskInfo.allowedTypes.join(', ') }}</text>
 				</view>
 
 				<view v-if="uploadedFiles.length > 0" class="file-list">
@@ -51,7 +51,7 @@
 				</view>
 			</view>
 
-			<view class="card-box">
+			<view class="card-box" v-if="teamMembers && teamMembers.length > 0">
 				<view class="card-title-row">
 					<uni-icons type="staff-filled" size="20" color="#6C5BFF"></uni-icons>
 					<text class="card-title">团队成员贡献度</text>
@@ -111,31 +111,18 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { storeToRefs } from 'pinia';
-// 同时引入两个 Store
 import { useCourseContextStore } from '@/store/courseContextStore';
 import { useSubmissionStore } from '@/store/submissionStore';
 
 const contextStore = useCourseContextStore();
 const subStore = useSubmissionStore();
 
-// 1. 获取团队数据 (用于修改贡献度)
 const { teamMembers, currentTask } = storeToRefs(contextStore);
-
-// 2. 获取文件上传数据
 const { uploadedFiles, isSubmitting, taskInfo } = storeToRefs(subStore);
 
-// [核心新增] 页面加载时的安全检查 (路由守卫)
 onMounted(() => {
-    // 1. 检查是否选中了任务
-    if (!currentTask.value || !currentTask.value.id) {
-        uni.showToast({ title: '未选中任务', icon: 'none' });
-        setTimeout(() => uni.navigateBack(), 1000);
-        return;
-    }
-
-    // 2. 检查是否有权限 (防止直接路由跳转绕过)
     const permission = contextStore.checkSubmissionPermission();
     if (!permission.allowed) {
         uni.showToast({ 
@@ -147,24 +134,24 @@ onMounted(() => {
     }
 });
 
-// 计算总贡献
+// [新增] 页面卸载时，清空已选择的文件，防止带到其他任务
+onUnmounted(() => {
+    subStore.clearFiles();
+});
+
 const totalContribution = computed(() => {
   const total = teamMembers.value.reduce((sum, m) => sum + m.contribution, 0);
   return total === 0 ? 1 : total;
 });
 
-// uCharts 数据
-const radarChartData = computed(() => {
-  return {
-    categories: teamMembers.value.map(m => m.name),
-    series: [{
-      name: "贡献度",
-      data: teamMembers.value.map(m => m.contribution)
-    }]
-  };
-});
+const radarChartData = computed(() => ({
+  categories: teamMembers.value.map(m => m.name),
+  series: [{
+    name: "贡献度",
+    data: teamMembers.value.map(m => m.contribution)
+  }]
+}));
 
-// uCharts 配置
 const chartOpts = ref({
   color: ["#4C8AF2"],
   padding: [5, 5, 5, 5],
@@ -181,15 +168,28 @@ const chartOpts = ref({
   }
 });
 
-// 文件选择
+// [修改] 实现真实文件选择
 const handleFileSelect = () => {
-  uni.showActionSheet({
-    itemList: ['从手机选择 (模拟)'],
-    success: () => {
-      subStore.addFile({
-        name: `Project_Source_${uploadedFiles.value.length + 1}.rar`,
-        size: 1024 * 1024 * 2.5
-      });
+  uni.chooseFile({
+    count: 1, // 暂时只支持单文件上传
+    // extension: taskInfo.value.allowedTypes, // H5端不支持此参数，为保证兼容性，暂时注释
+    success: (res) => {
+      const tempFile = res.tempFiles[0];
+      if (tempFile) {
+        // 检查文件大小
+        if (taskInfo.value.maxFileSize && tempFile.size > taskInfo.value.maxFileSize * 1024 * 1024) {
+            uni.showToast({ title: `文件大小不能超过 ${taskInfo.value.maxFileSize}MB`, icon: 'none' });
+            return;
+        }
+        subStore.addFile({
+          name: tempFile.name,
+          size: tempFile.size,
+          tempFilePath: tempFile.path // uni-app 编译时会处理平台差异，H5用path，原生用tempFilePath
+        });
+      }
+    },
+    fail: (err) => {
+        console.log('选择文件失败', err);
     }
   });
 };
@@ -202,37 +202,30 @@ const formatFileSize = (bytes) => {
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 };
 
-// [核心修改] 提交处理：先调 submitWork，成功后调 updateTaskStatus
-// [修改] 增加贡献度校验逻辑
+// [修改] 提交处理，组装真实数据并调用store
 const handleSubmit = async () => {
   try {
-    // 1. 权限检查
-    const permission = contextStore.checkSubmissionPermission();
-    if (!permission.allowed) throw new Error(permission.reason);
+    // 1. 组装贡献度数据 (如果是团队任务)
+    const contributions = (teamMembers.value || []).map(member => ({
+        studentId: member.studentId,
+        // 后端需要的是0-1的小数，前端显示的是百分比整数
+        percent: member.contribution / 100 
+    }));
 
-    // 2. [新增] 贡献度最低门槛检查
-    // 仅当任务类型为 2 (团队-队长) 或 3 (团队-全员) 时校验
-    if (currentTask.value.storyType === 2 || currentTask.value.storyType === 3) {
-        // 查找是否有贡献度低于 10 的成员
-        const lowContributors = teamMembers.value.filter(m => m.contribution < 10);
-        if (lowContributors.length > 0) {
-            // 提示具体是谁不达标
-            const names = lowContributors.map(m => m.name).join('、');
-            throw new Error(`无法提交：${names} 的贡献度低于 10%`);
-        }
-    }
-
-    // 3. 执行提交
-    await subStore.submitWork();
+    // 2. 执行提交 (store的submitWork会处理上传和接口调用)
+    await subStore.submitWork({ contributions });
     
+    // 3. 更新本地任务状态
     if (currentTask.value && currentTask.value.id) {
         contextStore.updateTaskStatus(currentTask.value.id, 'submitted');
     }
 
     uni.showToast({ title: '提交成功', icon: 'success' });
     setTimeout(() => uni.navigateBack(), 1500);
+
   } catch (e) {
-    uni.showToast({ title: e.message || e, icon: 'none' });
+    // store中抛出的错误会在这里被捕获
+    uni.showToast({ title: e.message || '提交失败', icon: 'none', duration: 2000 });
   }
 };
 

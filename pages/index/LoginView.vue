@@ -106,47 +106,35 @@ const handleLogin = async () => {
   }
 
   loading.value = true;
-  
-  // 模拟 API 调用延迟
-  setTimeout(() => {
-    loading.value = false;
-    
-    // [关键] 调用 Store 的 login action 更新全局状态
-    // 这里模拟后端返回的用户信息
-    authStore.login({
-        id: 101,
-        username: 'student_user',
-        nickname: '张三', // 模拟从数据库查到的名字
-        jobNumber: loginForm.value.studentId, // 使用用户输入的学号
-        avatarUrl: '', // 空字符串会显示默认头像
-        deptId: 2021, // 模拟班级ID
-        userRole: 0   // 0代表学生
+  try {
+    await authStore.login({
+      username: loginForm.value.studentId,
+      password: loginForm.value.password
     });
-    
     uni.showToast({ title: '登录成功', icon: 'success' });
-    
-    // 登录成功跳转 (因为是 TabBar 页面，必须用 switchTab)
     setTimeout(() => {
-        uni.switchTab({
-          url: '/pages/index/CourseListView'
-        });
+      uni.switchTab({
+        url: '/pages/index/CourseListView'
+      });
     }, 500);
-    
-  }, 1000);
+  } catch (error) {
+    const message = error?.message || '登录失败，请稍后重试';
+    uni.showToast({ title: message, icon: 'none' });
+  } finally {
+    loading.value = false;
+  }
 };
 
 // [保留] 游客/直接进入逻辑
 const handleGuestLogin = () => {
-  // 即使是游客，也需要在 Store 里设置一个“体验账号”的状态
-  // 否则进入个人中心会显示“未登录”
-  authStore.login({
-      id: 999,
-      username: 'guest',
-      nickname: '体验用户',
-      jobNumber: 'GUEST-001',
-      avatarUrl: '',
-      deptId: 0,
-      userRole: 0
+  authStore.loginAsMock({
+    id: 999,
+    username: 'guest',
+    nickname: '体验用户',
+    jobNumber: 'GUEST-001',
+    avatarUrl: '',
+    deptId: 0,
+    userRole: 0
   });
 
   uni.showToast({
@@ -154,7 +142,6 @@ const handleGuestLogin = () => {
     icon: 'none'
   });
   
-  // 直接跳转到主页
   setTimeout(() => {
     uni.switchTab({
       url: '/pages/index/CourseListView'
