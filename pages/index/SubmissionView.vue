@@ -203,22 +203,36 @@ const formatFileSize = (bytes) => {
 };
 
 // [核心修改] 提交处理：先调 submitWork，成功后调 updateTaskStatus
+// [修改] 增加贡献度校验逻辑
 const handleSubmit = async () => {
   try {
-    // 1. 执行上传
+    // 1. 权限检查
+    const permission = contextStore.checkSubmissionPermission();
+    if (!permission.allowed) throw new Error(permission.reason);
+
+    // 2. [新增] 贡献度最低门槛检查
+    // 仅当任务类型为 2 (团队-队长) 或 3 (团队-全员) 时校验
+    if (currentTask.value.storyType === 2 || currentTask.value.storyType === 3) {
+        // 查找是否有贡献度低于 10 的成员
+        const lowContributors = teamMembers.value.filter(m => m.contribution < 10);
+        if (lowContributors.length > 0) {
+            // 提示具体是谁不达标
+            const names = lowContributors.map(m => m.name).join('、');
+            throw new Error(`无法提交：${names} 的贡献度低于 10%`);
+        }
+    }
+
+    // 3. 执行提交
     await subStore.submitWork();
     
-    // 2. 上传成功，更新任务状态为 'submitted'
     if (currentTask.value && currentTask.value.id) {
         contextStore.updateTaskStatus(currentTask.value.id, 'submitted');
     }
 
     uni.showToast({ title: '提交成功', icon: 'success' });
-    
-    // 3. 返回上一页
     setTimeout(() => uni.navigateBack(), 1500);
   } catch (e) {
-    uni.showToast({ title: e, icon: 'none' });
+    uni.showToast({ title: e.message || e, icon: 'none' });
   }
 };
 
