@@ -20,7 +20,7 @@
 
 		<view class="matrix-container">
 			<scroll-view scroll-x="true" class="matrix-scroll-x" :show-scrollbar="false">
-				<view class="matrix-table">
+				<view class="matrix-table" :class="{ 'mode-compact': isCompactMode }">
 					
 					<view class="matrix-row goal-row">
 						<view class="matrix-cell sticky-col header-corner-top">
@@ -30,7 +30,7 @@
 							v-for="goal in goalColumns" 
 							:key="goal.id" 
 							class="matrix-cell goal-cell"
-							:style="{ flex: goal.span, minWidth: (goal.span * 100) + 'rpx' }"
+							:style="{ flex: goal.span, minWidth: (goal.span * (isCompactMode ? 80 : 160)) + 'rpx' }"
 						>
 							<text class="goal-text">{{ goal.name }}</text>
 						</view>
@@ -41,13 +41,11 @@
 							<text class="corner-text">任务集合</text>
 						</view>
 						<view 
-							v-for="epic in displayEpics" 
+							v-for="epic in mapMetaData.epics" 
 							:key="epic.id" 
 							class="matrix-cell epic-cell"
 						>
-							<view class="vertical-text-wrapper">
-								<text class="header-text">{{ epic.name }}</text>
-							</view>
+							<text class="header-text">{{ epic.name }}</text>
 						</view>
 					</view>
 
@@ -61,7 +59,7 @@
 						</view>
 
 						<view 
-							v-for="(epic, cIndex) in displayEpics" 
+							v-for="(epic, cIndex) in mapMetaData.epics" 
 							:key="epic.id" 
 							class="matrix-cell task-cell"
 						>
@@ -129,35 +127,15 @@ import { useCourseContextStore } from '@/store/courseContextStore';
 const contextStore = useCourseContextStore();
 const { taskNodes, mapMetaData } = storeToRefs(contextStore);
 
-// [修复与优化] 动态计算史诗列，以防元数据不完整导致任务无法显示
-const displayEpics = computed(() => {
-	const epics = mapMetaData.value.epics || [];
-	const nodes = taskNodes.value || [];
-
-	if (nodes.length === 0) {
-		return epics;
-	}
-
-	// 找到最大的 x 坐标 (0-indexed)
-	const maxTaskX = Math.max(-1, ...nodes.map(n => n.x));
-	const requiredCols = maxTaskX + 1;
-
-	if (requiredCols > epics.length) {
-		const placeholders = Array.from({ length: requiredCols - epics.length }, (_, i) => ({
-			id: `ph-${i}`,
-			name: '未命名集合',
-			placeholder: true
-		}));
-		return [...epics, ...placeholders];
-	}
-
-	return epics;
-});
-
 const selectedTask = ref(null);
 const touchStart = ref({ x: 0, y: 0 });
 
 const goBack = () => uni.navigateBack();
+
+// [新增] 智能布局判断：如果列数大于4，则启用紧凑模式
+const isCompactMode = computed(() => {
+    return mapMetaData.value.epics && mapMetaData.value.epics.length > 4;
+});
 
 const goalColumns = computed(() => {
     if (!mapMetaData.value.goals || !mapMetaData.value.epics) return [];
@@ -187,6 +165,7 @@ const enterDetail = () => {
 	}
 };
 
+// --- 手势滑动逻辑 ---
 const onTouchStart = (e) => { touchStart.value = { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY }; };
 const onTouchEnd = (e) => {
   if (!selectedTask.value) return;
@@ -203,12 +182,10 @@ const moveToNeighbor = (direction) => {
   let next = null;
   const cx = current.x, cy = current.y;
 
-  // 反转逻辑：向左滑动显示右侧任务，向右滑动显示左侧任务
-  // 向上滑动显示下方任务，向下滑动显示上方任务
-  if (direction === 'left') next = candidates.filter(t => t.y === cy && t.x > cx).sort((a, b) => a.x - b.x)[0];
-  else if (direction === 'right') next = candidates.filter(t => t.y === cy && t.x < cx).sort((a, b) => b.x - a.x)[0];
-  else if (direction === 'up') next = candidates.filter(t => t.x === cx && t.y > cy).sort((a, b) => a.y - b.y)[0];
-  else if (direction === 'down') next = candidates.filter(t => t.x === cx && t.y < cy).sort((a, b) => b.y - a.y)[0];
+  if (direction === 'left') next = candidates.filter(t => t.y === cy && t.x < cx).sort((a, b) => b.x - a.x)[0];
+  else if (direction === 'right') next = candidates.filter(t => t.y === cy && t.x > cx).sort((a, b) => a.x - b.x)[0];
+  else if (direction === 'up') next = candidates.filter(t => t.x === cx && t.y < cy).sort((a, b) => b.y - a.y)[0];
+  else if (direction === 'down') next = candidates.filter(t => t.x === cx && t.y > cy).sort((a, b) => a.y - b.y)[0];
 
   if (next) selectedTask.value = next;
   else uni.showToast({ title: '无相邻任务', icon: 'none', duration: 800 });
@@ -222,11 +199,12 @@ $text-sub: #999;
 $theme-color: #4C8AF2;
 $line-color: #EAEAEA;
 
-/* 颜色配置 */
-$goal-bg: #F6AD55; /* 橙色 */
-$epic-bg: #F6E05E; /* 黄色 */
-$goal-text: #FFFFFF;
-$epic-text: #555555;
+/* 柔和配色 */
+$goal-bg: #FFF7ED;  /* 极淡橙 */
+$goal-text: #C05621;
+$epic-bg: #FEFCE8;  /* 极淡黄 */
+$epic-text: #975A16;
+$grid-line: #E5E7EB;
 
 .task-map-page {
 	height: 100vh;
@@ -275,27 +253,85 @@ $epic-text: #555555;
 	align-items: flex-start;
 }
 
-/* 单元格基础 */
+/* --- 基础单元格样式 (默认：宽绰模式 Wide Mode) --- */
+
 .matrix-cell {
-	padding: 8rpx 4rpx;
+	flex: 1;
+	/* 默认宽列 */
+	min-width: 160rpx; 
+	padding: 10rpx;
 	box-sizing: border-box;
 	flex-shrink: 0;
-	border-right: 1rpx dashed #F8F8F8;
+	border-right: 1rpx solid $grid-line;
+	border-bottom: 1rpx solid $grid-line;
 	display: flex;
 	justify-content: center;
 	align-items: center;
 }
 
-/* 左侧冻结列 */
 .sticky-col {
 	position: sticky; left: 0; z-index: 10; background-color: #fff;
-	flex: 0 0 90rpx; 
-	min-width: 90rpx;
-	width: 90rpx;
+	flex: 0 0 120rpx; 
+	min-width: 120rpx;
+	width: 120rpx;
 	border-right: 1rpx solid $line-color;
 }
 
-/* --- 1. 毕业要求行 (Top Row) --- */
+/* 表头默认样式：横排 */
+.epic-cell {
+	background-color: $epic-bg;
+	color: $epic-text;
+	height: 80rpx; /* 矮表头 */
+	border-bottom: 1rpx solid $line-color;
+	border-right: 1rpx solid $grid-line;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0 10rpx;
+}
+
+.header-text {
+	font-size: 24rpx;
+	font-weight: bold;
+	text-align: center;
+	white-space: normal; /* 允许换行 */
+	line-height: 1.2;
+}
+
+/* --- 紧凑模式 (Compact Mode) --- */
+/* 当列数过多时，自动应用这套样式 */
+.mode-compact {
+	/* 1. 压缩列宽 */
+	.matrix-cell {
+		min-width: 80rpx; /* 极窄 */
+		padding: 10rpx 4rpx;
+	}
+	
+	/* 2. 压缩左侧冻结列 */
+	.sticky-col {
+		flex: 0 0 90rpx;
+		min-width: 90rpx;
+		width: 90rpx;
+	}
+
+	/* 3. 拉高表头，启用竖排 */
+	.epic-cell {
+		height: 220rpx; /* 增高 */
+		align-items: center;
+		padding: 10rpx 0;
+	}
+
+	.header-text {
+		font-size: 20rpx;
+		/* 竖排逻辑 */
+		writing-mode: vertical-lr; 
+		text-orientation: upright;
+		letter-spacing: 4rpx;
+	}
+}
+
+/* --- 通用行样式 --- */
+
 .goal-row {
 	position: sticky; top: 0; z-index: 21;
 }
@@ -304,63 +340,39 @@ $epic-text: #555555;
 	height: 60rpx;
 	font-size: 18rpx; color: $text-sub;
 	border-bottom: 1rpx solid #fff;
+	align-items: center;
+	justify-content: center;
 }
 .goal-cell {
 	background-color: $goal-bg;
 	color: $goal-text;
-	/* [修改] 缩小字体以适配 */
-	font-size: 20rpx; 
+	font-size: 20rpx;
 	font-weight: bold;
 	height: 60rpx;
-	border-right: 2rpx solid rgba(255,255,255,0.5);
+	border-right: 1rpx solid $grid-line;
 	text-align: center;
 	overflow: hidden;
 	display: -webkit-box;
 	-webkit-line-clamp: 2;
 	-webkit-box-orient: vertical;
 	line-height: 1.1;
-	/* 增加一点内边距防止文字贴边 */
 	padding: 4rpx 8rpx;
 }
 
-/* --- 2. 任务集合/史诗行 (Second Row) --- */
 .epic-row {
-	position: sticky; top: 60rpx;
-	z-index: 20;
+	position: sticky; top: 60rpx; z-index: 20;
 }
 .header-corner-bottom {
 	background-color: #fff;
-	height: 160rpx;
+	/* 这里的 fill-available 是为了填满父容器高度，实际由子元素决定 */
+	height: 100%; 
 	font-size: 18rpx; color: $text-sub;
 	border-bottom: 1rpx solid $line-color;
-}
-.epic-cell {
-	background-color: $epic-bg;
-	color: $epic-text;
-	height: 160rpx;
-	border-bottom: 1rpx solid $line-color;
-	border-right: 2rpx solid rgba(255,255,255,0.5);
-	/* [修改] 改为居中对齐，解决上方留白问题 */
+	display: flex; 
 	align-items: center; 
-	padding: 0;
-	flex: 1;
-	min-width: 100rpx;
-}
-.vertical-text-wrapper {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    writing-mode: vertical-lr; /* 竖排 */
-    /* [修改] 让数字和字母直立显示 */
-    text-orientation: upright; 
-    letter-spacing: 4rpx;
-}
-.header-text {
-	font-size: 20rpx;
-	font-weight: bold;
+	justify-content: center;
 }
 
-/* --- 3. 内容行 --- */
 .body-row { border-bottom: 1rpx solid $line-color; }
 .release-cell {
 	background-color: #FFFFFF;
@@ -370,12 +382,13 @@ $epic-text: #555555;
 	padding-top: 20rpx;
 	text-align: center;
 	line-height: 1.2;
+	/* 确保内容垂直靠上 */
+	align-items: flex-start; 
+	justify-content: center;
 }
 .task-cell {
-	flex: 1;
-	min-width: 100rpx;
+	align-items: flex-start; /* 任务顶对齐 */
 	padding-top: 12rpx;
-	align-items: flex-start;
 }
 
 .task-stack {
@@ -386,8 +399,8 @@ $epic-text: #555555;
 	align-items: center;
 }
 .mini-node {
-	width: 44rpx;
-	height: 44rpx;
+	width: 40rpx;
+	height: 40rpx;
 	border-radius: 6rpx;
 	display: flex; align-items: center; justify-content: center;
 	font-size: 16rpx;
