@@ -185,56 +185,162 @@ export const useCourseContextStore = defineStore('courseContext', () => {
         totalScore: target.score ?? target.totalScore ?? 0
       };
       const detail = await getTeamDetail(target.teamId);
-      teamMembers.value = (detail?.members || []).map((member) => ({
-        id: member.id,
-        name: member.name,
-        studentId: member.studentId || member.jobNumber || '',
-        isLeader: !!member.isLeader,
-        contribution: member.contributionRate != null
-          ? Math.round(member.contributionRate * 100)
-          : member.contribution ?? 0,
-        score: member.score ?? 0
-      }));
+      teamMembers.value = (detail?.members || []).map((member) => {
+        // 兼容多种学号字段命名方式
+        const studentId = member.studentId || member.jobNumber || member.job_number || '';
+        
+        console.log('团队成员数据:', {
+          id: member.id,
+          name: member.name,
+          studentId: studentId,
+          jobNumber: member.jobNumber,
+          job_number: member.job_number
+        });
+        
+        return {
+          id: member.id,
+          name: member.name,
+          studentId: studentId,
+          isLeader: !!member.isLeader,
+          contribution: member.contributionRate != null
+            ? Math.round(member.contributionRate * 100)
+            : member.contribution ?? 0,
+          score: member.score ?? 0
+        };
+      });
     } catch (error) {
       console.warn('获取团队数据失败', error);
     }
   };
 
   const initCourseContext = async (courseId) => {
-    if (!courseId) return;
+    if (!courseId) {
+      console.warn('⚠️ 课程ID为空，无法初始化');
+      return;
+    }
+    
     currentCourseId.value = courseId;
+    
+    // 保存到本地存储，防止刷新后丢失
     try {
-      const [detail, personal, abilities, mapMeta] = await Promise.all([
-        getCourseDetail(courseId),
-        getCoursePersonalStats(courseId).catch(() => null),
-        getCourseAbilities(courseId).catch(() => []),
-        getCourseMapMetadata(courseId).catch(() => ({ releases: [], goals: [], epics: [] }))
+      uni.setStorageSync('currentCourseId', courseId);
+    } catch (e) {
+      console.warn('保存课程ID到本地存储失败', e);
+    }
+    
+    try {
+      console.log('🔄 开始初始化课程上下文，课程ID:', courseId);
+      
+      // 使用 Promise.allSettled 确保即使某些请求失败，其他请求仍能继续
+      const results = await Promise.allSettled([
+        getCourseDetail(courseId).catch(err => {
+          console.error('❌ 获取课程详情失败:', err);
+          return null;
+        }),
+        getCoursePersonalStats(courseId).catch(err => {
+          console.error('❌ 获取个人统计数据失败:', err);
+          return null;
+        }),
+        getCourseAbilities(courseId).catch(err => {
+          console.error('❌ 获取能力维度失败:', err);
+          return [];
+        }),
+        getCourseMapMetadata(courseId).catch(err => {
+          console.error('❌ 获取地图元数据失败:', err);
+          return { releases: [], goals: [], epics: [] };
+        })
       ]);
+      
+      const [detailResult, personalResult, abilitiesResult, mapMetaResult] = results;
+      const detail = detailResult.status === 'fulfilled' ? detailResult.value : null;
+      const personal = personalResult.status === 'fulfilled' ? personalResult.value : null;
+      const abilities = abilitiesResult.status === 'fulfilled' ? abilitiesResult.value : [];
+      const mapMeta = mapMetaResult.status === 'fulfilled' ? mapMetaResult.value : { releases: [], goals: [], epics: [] };
 
       const coursePayload = detail?.course || detail || {};
+      console.log('📚 课程详情数据:', coursePayload);
+      const courseName = coursePayload.courseName || coursePayload.course_name || coursePayload.name || '未命名课程';
+      const teacher = coursePayload.teacher || coursePayload.teacher_names || coursePayload.teacherName || '';
+      const semester = coursePayload.semester || coursePayload.semester_label || '';
+      
       currentCourse.value = {
         courseId,
-        courseName: coursePayload.courseName || coursePayload.name || '未命名课程',
-        teacher: coursePayload.teacher || coursePayload.teacherName || '',
-        semester: coursePayload.semester || ''
+        courseName,
+        teacher,
+        semester
       };
+      console.log('✅ 设置当前课程:', currentCourse.value);
 
+      console.log('📊 个人数据原始返回:', personal);
+      
+      // 兼容多种字段命名方式
+      const totalScore = personal?.totalScore ?? personal?.total_score ?? 0;
+      const avgScore = personal?.avgScore ?? personal?.averageScore ?? personal?.avg_score ?? 0;
+      const rank = personal?.rank ?? null;
+      const rankPercentRaw = personal?.rankPercent ?? personal?.rank_percent ?? 0;
+      const studentCount = personal?.studentCount ?? personal?.student_count ?? 0;
+      
+      // rankPercent 后端返回的是 0-100 的百分比，直接使用
+      const rankPercent = Number(rankPercentRaw);
+      
       personalData.value = {
-        totalScore: personal?.totalScore ?? 0,
-        avgScore: personal?.avgScore ?? personal?.averageScore ?? 0,
-        rank: personal?.rank ?? 0,
-        rankPercent: toPercent(personal?.rankPercent),
-        studentCount: personal?.studentCount ?? 0
+        totalScore: Number(totalScore),
+        avgScore: Number(avgScore),
+        rank: rank !== null ? Number(rank) : null,
+        rankPercent: rankPercent,
+        studentCount: Number(studentCount)
       };
+      
+      console.log('✅ 处理后的个人数据:', personalData.value);
 
-      abilityDimensions.value = (abilities || []).map((item, index) => ({
-        id: item.abilityKey || item.id || index,
-        label: item.abilityName || item.label || `能力 ${index + 1}`,
-        value: item.achievementRate != null
-          ? Math.round(item.achievementRate * 100)
-          : Math.round(item.score ?? 0),
-        color: item.color || ['#4C8AF2', '#9B59B6', '#2ECC71'][index % 3]
-      }));
+      console.log('🎯 能力维度原始数据:', abilities);
+      abilityDimensions.value = (abilities || []).map((item, index) => {
+        // 兼容多种字段命名方式
+        const abilityName = item.abilityName || item.ability_name || item.label || `能力 ${index + 1}`;
+        const achievementRate = item.achievementRate != null 
+          ? item.achievementRate 
+          : (item.completion_percent != null ? item.completion_percent / 100 : 0);
+        const value = Math.round(achievementRate * 100);
+        
+        // 根据 goal_level 设置不同颜色
+        const goalLevel = (item.goalLevel || item.goal_level || '').toUpperCase();
+        let color = item.color;
+        let levelLabel = '';
+        
+        if (!color) {
+          if (goalLevel === 'H') {
+            color = '#E74C3C'; // 红色 - 高优先级
+            levelLabel = '高';
+          } else if (goalLevel === 'M') {
+            color = '#4C8AF2'; // 蓝色 - 中等优先级
+            levelLabel = '中';
+          } else if (goalLevel === 'L') {
+            color = '#95A5A6'; // 灰色 - 低优先级
+            levelLabel = '低';
+          } else {
+            // 未设置级别，使用默认颜色
+            color = ['#4C8AF2', '#9B59B6', '#2ECC71', '#F39C12', '#E74C3C'][index % 5];
+          }
+        }
+        
+        const mapped = {
+          id: item.abilityKey || item.ability_id || item.abilityId || item.id || index,
+          label: abilityName,
+          value: value,
+          color: color,
+          goalLevel: goalLevel,
+          levelLabel: levelLabel,
+          // 添加任务分布信息用于说明
+          totalTasks: item.totalTasks || item.total_tasks || 0,
+          finishedTasks: item.finishedTasks || item.finished_tasks || 0,
+          maxScore: item.maxScore || item.max_score || 0,
+          achievedScore: item.achievedScore || item.achieved_score || 0,
+          threshold: item.threshold || 70
+        };
+        console.log(`  能力维度 ${index + 1}:`, mapped);
+        return mapped;
+      });
+      console.log('✅ 设置能力维度数量:', abilityDimensions.value.length);
 
       mapMetaData.value = {
         releases: (mapMeta?.releases || []).map((release) => ({
@@ -253,13 +359,22 @@ export const useCourseContextStore = defineStore('courseContext', () => {
         }))
       };
 
-      await Promise.all([
-        refreshTaskNodes(courseId),
-        fetchTeamInfo(courseId)
-      ]);
+      // 异步加载任务节点和团队信息，但不阻塞主流程
+      Promise.allSettled([
+        refreshTaskNodes(courseId).catch(err => {
+          console.error('❌ 刷新任务节点失败:', err);
+        }),
+        fetchTeamInfo(courseId).catch(err => {
+          console.error('❌ 获取团队信息失败:', err);
+        })
+      ]).then(() => {
+        console.log('✅ 课程上下文初始化完成');
+      });
+      
     } catch (error) {
-      showError('加载课程数据失败', error);
-      throw error;
+      console.error('❌ 初始化课程上下文时发生错误:', error);
+      // 不抛出错误，允许部分数据加载失败
+      // showError('加载课程数据失败', error);
     }
   };
 
@@ -471,6 +586,7 @@ export const useCourseContextStore = defineStore('courseContext', () => {
     excellentWorksList,
     fetchCourseList,
     initCourseContext,
+    fetchTeamInfo,
     selectTask,
     checkSubmissionPermission,
     updateMemberContribution,
