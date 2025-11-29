@@ -30,14 +30,17 @@
 							v-for="goal in goalColumns" 
 							:key="goal.id" 
 							class="matrix-cell goal-cell"
-							:style="{ flex: goal.span, minWidth: (goal.span * (isCompactMode ? 80 : 160)) + 'rpx' }"
+							:style="{ flex: goal.span, minWidth: (goal.span * (isCompactMode ? 80 : 220)) + 'rpx' }"
 						>
 							<text class="goal-text">{{ goal.name }}</text>
 						</view>
 					</view>
 
 					<view class="matrix-row epic-row">
-						<view class="matrix-cell sticky-col header-corner-bottom">
+						<view 
+							class="matrix-cell sticky-col header-corner-bottom"
+							:class="{ 'corner-compact': isCompactMode }"
+						>
 							<text class="corner-text">任务集合</text>
 						</view>
 						<view 
@@ -45,7 +48,9 @@
 							:key="epic.id" 
 							class="matrix-cell epic-cell"
 						>
-							<text class="header-text">{{ epic.name }}</text>
+							<view class="vertical-text-wrapper">
+								<text class="header-text">{{ epic.name }}</text>
+							</view>
 						</view>
 					</view>
 
@@ -112,7 +117,7 @@
 					<button class="button-primary" @click="enterDetail">
 						<text>进入详情</text>
 					</button>
-					<text class="swipe-hint">在此卡片上滑动切换邻近任务</text>
+					<text class="swipe-hint">👆 👇 👈 👉 滑动切换邻近任务</text>
 				</view>
 			</view>
 		</view>
@@ -132,7 +137,7 @@ const touchStart = ref({ x: 0, y: 0 });
 
 const goBack = () => uni.navigateBack();
 
-// [新增] 智能布局判断：如果列数大于4，则启用紧凑模式
+// 智能判断模式
 const isCompactMode = computed(() => {
     return mapMetaData.value.epics && mapMetaData.value.epics.length > 4;
 });
@@ -146,7 +151,7 @@ const goalColumns = computed(() => {
 });
 
 const getTasksInCell = (x, y) => {
-	return taskNodes.value.filter(t => t.x === x && t.y === y) || [];
+	return taskNodes.value.filter(t => t.x === x && t.y === y);
 };
 
 const getStatusText = (status) => {
@@ -165,30 +170,103 @@ const enterDetail = () => {
 	}
 };
 
-// --- 手势滑动逻辑 ---
+// --- 手势滑动逻辑 (反向修正版) ---
 const onTouchStart = (e) => { touchStart.value = { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY }; };
 const onTouchEnd = (e) => {
   if (!selectedTask.value) return;
   const dx = e.changedTouches[0].clientX - touchStart.value.x;
   const dy = e.changedTouches[0].clientY - touchStart.value.y;
+  
   if (Math.abs(dx) < 30 && Math.abs(dy) < 30) return;
+
   const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+  
   moveToNeighbor(dir);
 };
 
 const moveToNeighbor = (direction) => {
   const current = selectedTask.value;
-  const candidates = taskNodes.value.filter(t => t.id !== current.id);
-  let next = null;
-  const cx = current.x, cy = current.y;
+  if (!current) return;
 
-  if (direction === 'left') next = candidates.filter(t => t.y === cy && t.x < cx).sort((a, b) => b.x - a.x)[0];
-  else if (direction === 'right') next = candidates.filter(t => t.y === cy && t.x > cx).sort((a, b) => a.x - b.x)[0];
-  else if (direction === 'up') next = candidates.filter(t => t.x === cx && t.y < cy).sort((a, b) => b.y - a.y)[0];
-  else if (direction === 'down') next = candidates.filter(t => t.x === cx && t.y > cy).sort((a, b) => a.y - b.y)[0];
+  const sourceStack = getTasksInCell(current.x, current.y);
+  const sourceIndex = sourceStack.findIndex(t => t.id === current.id);
+
+  let next = null;
+
+  // [修正] 向上滑 (Swipe Up) -> 去下面 (Down/Next in Stack)
+  if (direction === 'up') {
+      if (sourceIndex < sourceStack.length - 1) {
+          next = sourceStack[sourceIndex + 1];
+      } else {
+          // 堆叠到底了，找下一行的对应列 (y + 1)
+          next = findClosestColumnTask(current.x, current.y, 0, 1);
+      }
+  } 
+  // [修正] 向下滑 (Swipe Down) -> 去上面 (Up/Prev in Stack)
+  else if (direction === 'down') {
+      if (sourceIndex > 0) {
+          next = sourceStack[sourceIndex - 1];
+      } else {
+          // 堆叠到顶了，找上一行的对应列 (y - 1)
+          next = findClosestColumnTask(current.x, current.y, 0, -1);
+      }
+  } 
+  // [修正] 向左滑 (Swipe Left) -> 去右边 (Next Column, x + 1)
+  else if (direction === 'left') {
+      const targetX = findNextColumnX(current.x, current.y, 1); // dx = 1 (Right)
+      if (targetX !== null) {
+          const targetStack = getTasksInCell(targetX, current.y);
+          if (targetStack.length > 0) {
+              const targetIndex = Math.min(sourceIndex, targetStack.length - 1);
+              next = targetStack[targetIndex];
+          }
+      }
+  } 
+  // [修正] 向右滑 (Swipe Right) -> 去左边 (Prev Column, x - 1)
+  else if (direction === 'right') {
+      const targetX = findNextColumnX(current.x, current.y, -1); // dx = -1 (Left)
+      if (targetX !== null) {
+          const targetStack = getTasksInCell(targetX, current.y);
+          if (targetStack.length > 0) {
+              const targetIndex = Math.min(sourceIndex, targetStack.length - 1);
+              next = targetStack[targetIndex];
+          }
+      }
+  }
 
   if (next) selectedTask.value = next;
-  else uni.showToast({ title: '无相邻任务', icon: 'none', duration: 800 });
+  else {
+      const dirText = { 'left': '右', 'right': '左', 'up': '下', 'down': '上' };
+      uni.showToast({ title: `${dirText[direction]}侧无任务`, icon: 'none', duration: 800 });
+  }
+};
+
+// 辅助：寻找下一个有任务的列的 X 坐标
+const findNextColumnX = (cx, cy, dx) => {
+    const rowTasks = taskNodes.value.filter(t => t.y === cy);
+    const existXs = [...new Set(rowTasks.map(t => t.x))].sort((a, b) => a - b);
+    
+    if (dx === 1) { // 找右边 (> cx)
+        return existXs.find(x => x > cx) ?? null;
+    } else { // 找左边 (< cx)
+        return existXs.reverse().find(x => x < cx) ?? null;
+    }
+};
+
+// 辅助：寻找跨行(垂直方向)的最近任务
+const findClosestColumnTask = (cx, cy, dx, dy) => {
+    const targetY = cy + dy;
+    const rowTasks = taskNodes.value.filter(t => t.y === targetY);
+    if (rowTasks.length === 0) return null;
+
+    let targets = rowTasks.filter(t => t.x === cx);
+    
+    if (targets.length > 0) {
+        // dy=1 (去下一行) -> 取目标格子的第1个
+        // dy=-1 (去上一行) -> 取目标格子的最后1个 (底部)
+        return dy === 1 ? targets[0] : targets[targets.length - 1];
+    }
+    return null;
 };
 </script>
 
@@ -200,9 +278,9 @@ $theme-color: #4C8AF2;
 $line-color: #EAEAEA;
 
 /* 柔和配色 */
-$goal-bg: #FFF7ED;  /* 极淡橙 */
+$goal-bg: #FFF7ED;  
 $goal-text: #C05621;
-$epic-bg: #FEFCE8;  /* 极淡黄 */
+$epic-bg: #FEFCE8;  
 $epic-text: #975A16;
 $grid-line: #E5E7EB;
 
@@ -246,19 +324,16 @@ $grid-line: #E5E7EB;
 	flex-direction: column;
 	min-width: 100%;
 }
-
 .matrix-row {
 	display: flex;
 	width: 100%;
-	align-items: flex-start;
+	align-items: stretch; /* 高度拉伸对齐 */
 }
 
-/* --- 基础单元格样式 (默认：宽绰模式 Wide Mode) --- */
-
+/* --- 基础单元格 (宽绰模式) --- */
 .matrix-cell {
 	flex: 1;
-	/* 默认宽列 */
-	min-width: 160rpx; 
+	min-width: 220rpx; 
 	padding: 10rpx;
 	box-sizing: border-box;
 	flex-shrink: 0;
@@ -275,13 +350,13 @@ $grid-line: #E5E7EB;
 	min-width: 120rpx;
 	width: 120rpx;
 	border-right: 1rpx solid $line-color;
+    box-shadow: 2rpx 0 6rpx rgba(0,0,0,0.02);
 }
 
-/* 表头默认样式：横排 */
 .epic-cell {
 	background-color: $epic-bg;
 	color: $epic-text;
-	height: 80rpx; /* 矮表头 */
+	height: 80rpx;
 	border-bottom: 1rpx solid $line-color;
 	border-right: 1rpx solid $grid-line;
 	display: flex;
@@ -289,52 +364,106 @@ $grid-line: #E5E7EB;
 	justify-content: center;
 	padding: 0 10rpx;
 }
-
 .header-text {
-	font-size: 24rpx;
+	font-size: 26rpx;
 	font-weight: bold;
 	text-align: center;
-	white-space: normal; /* 允许换行 */
+	white-space: normal;
 	line-height: 1.2;
 }
 
+/* 内容行 */
+.body-row { 
+    border-bottom: 1rpx solid $line-color;
+    min-height: 240rpx; 
+}
+.release-cell {
+	background-color: #FFFFFF;
+	font-size: 26rpx;
+	font-weight: bold;
+	color: #555;
+	text-align: center;
+	line-height: 1.2;
+    /* [关键] 垂直居中 */
+    align-items: center; 
+    justify-content: center;
+}
+
+/* [关键] 任务节点容器：垂直居中 */
+.task-cell {
+	align-items: center; /* 垂直居中 */
+	padding-top: 0;
+}
+
+.task-stack {
+	display: flex;
+	flex-direction: column;
+	gap: 12rpx;
+	width: 100%;
+	align-items: center;
+    justify-content: center; /* 堆叠内容居中 */
+}
+
+/* [关键] 正方形图标 */
+.mini-node {
+	width: 90rpx; 
+	height: 90rpx;
+	border-radius: 16rpx;
+	display: flex; align-items: center; justify-content: center;
+	font-size: 28rpx;
+	font-weight: bold;
+	color: white;
+	transition: all 0.3s ease;
+    box-shadow: 0 4rpx 10rpx rgba(0,0,0,0.1);
+}
+
 /* --- 紧凑模式 (Compact Mode) --- */
-/* 当列数过多时，自动应用这套样式 */
 .mode-compact {
-	/* 1. 压缩列宽 */
 	.matrix-cell {
-		min-width: 80rpx; /* 极窄 */
+		min-width: 80rpx; 
 		padding: 10rpx 4rpx;
 	}
-	
-	/* 2. 压缩左侧冻结列 */
 	.sticky-col {
 		flex: 0 0 90rpx;
 		min-width: 90rpx;
 		width: 90rpx;
 	}
+    .body-row {
+        min-height: 160rpx;
+    }
+    .release-cell {
+        font-size: 20rpx;
+    }
 
-	/* 3. 拉高表头，启用竖排 */
+	.mini-node {
+		width: 40rpx; 
+		height: 40rpx;
+		border-radius: 6rpx;
+		font-size: 16rpx;
+        box-shadow: none;
+	}
+    .task-stack {
+        gap: 6rpx;
+    }
+
 	.epic-cell {
-		height: 220rpx; /* 增高 */
+		height: 220rpx; 
 		align-items: center;
 		padding: 10rpx 0;
 	}
-
 	.header-text {
 		font-size: 20rpx;
-		/* 竖排逻辑 */
 		writing-mode: vertical-lr; 
 		text-orientation: upright;
 		letter-spacing: 4rpx;
 	}
+    .corner-compact {
+        height: 220rpx !important;
+    }
 }
 
-/* --- 通用行样式 --- */
-
-.goal-row {
-	position: sticky; top: 0; z-index: 21;
-}
+/* 表头通用 */
+.goal-row { position: sticky; top: 0; z-index: 21; }
 .header-corner-top {
 	background-color: #fff;
 	height: 60rpx;
@@ -359,13 +488,10 @@ $grid-line: #E5E7EB;
 	padding: 4rpx 8rpx;
 }
 
-.epic-row {
-	position: sticky; top: 60rpx; z-index: 20;
-}
+.epic-row { position: sticky; top: 60rpx; z-index: 20; }
 .header-corner-bottom {
 	background-color: #fff;
-	/* 这里的 fill-available 是为了填满父容器高度，实际由子元素决定 */
-	height: 100%; 
+	height: 80rpx; 
 	font-size: 18rpx; color: $text-sub;
 	border-bottom: 1rpx solid $line-color;
 	display: flex; 
@@ -373,47 +499,14 @@ $grid-line: #E5E7EB;
 	justify-content: center;
 }
 
-.body-row { border-bottom: 1rpx solid $line-color; }
-.release-cell {
-	background-color: #FFFFFF;
-	font-size: 20rpx;
-	font-weight: bold;
-	color: #555;
-	padding-top: 20rpx;
-	text-align: center;
-	line-height: 1.2;
-	/* 确保内容垂直靠上 */
-	align-items: flex-start; 
-	justify-content: center;
-}
-.task-cell {
-	align-items: flex-start; /* 任务顶对齐 */
-	padding-top: 12rpx;
-}
-
-.task-stack {
-	display: flex;
-	flex-direction: column;
-	gap: 8rpx;
-	width: 100%;
-	align-items: center;
-}
-.mini-node {
-	width: 40rpx;
-	height: 40rpx;
-	border-radius: 6rpx;
-	display: flex; align-items: center; justify-content: center;
-	font-size: 16rpx;
-	font-weight: bold;
-	color: white;
-	transition: opacity 0.2s;
-}
+/* 状态颜色 */
 .mini-node:active { opacity: 0.6; }
 .mini-node.completed { background: #2ECC71; }
 .mini-node.submitted { background: #4C8AF2; }
 .mini-node.in-progress { background: #4C8AF2; }
 .mini-node.upcoming { background: #E0E0E0; color: #AAA; }
 
+/* 弹窗 */
 .task-overlay {
 	position: fixed; left: 0; top: 0; width: 100%; height: 100%;
 	background: rgba(0, 0, 0, 0.5); z-index: 100;
@@ -432,6 +525,7 @@ $grid-line: #E5E7EB;
 .task-detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24rpx; }
 .task-detail-title { font-size: 32rpx; font-weight: bold; color: $text-main; }
 .task-detail-id { font-size: 22rpx; color: $text-sub; background: #f0f0f0; padding: 4rpx 10rpx; border-radius: 6rpx; font-family: monospace;}
+
 .task-detail-row { display: flex; margin-bottom: 12rpx; font-size: 24rpx; }
 .detail-label { width: 100rpx; color: $text-sub; flex-shrink: 0; }
 .detail-value { flex: 1; color: $text-main; line-height: 1.4; }
