@@ -13,6 +13,13 @@
 		</view>
 
 		<scroll-view scroll-y="true" class="page-scroll">
+			<!-- 加载中提示 -->
+			<view v-if="loading" class="loading-container">
+				<text>加载中...</text>
+			</view>
+			
+			<!-- 任务详情内容 -->
+			<template v-else>
 			<view class="task-header-card">
 				<view class="header-top">
 					<view class="header-left">
@@ -136,18 +143,108 @@
 					<uni-icons type="heart" size="20" color="#4C8AF2"></uni-icons>
 					<text>查看优秀作业</text>
 				</button>
+				
+				<button class="button-outline" @click="showHistoryModal">
+					<uni-icons type="clock" size="20" color="#4C8AF2"></uni-icons>
+					<text>历史提交</text>
+				</button>
 			</view>
+			
+			<!-- 历史提交悬浮窗 -->
+			<view v-if="showHistory" class="history-modal-overlay" @click="closeHistoryModal">
+				<view class="history-modal" @click.stop>
+					<view class="history-modal-header">
+						<text class="history-modal-title">历史提交</text>
+						<view class="icon-button" @click="closeHistoryModal">
+							<uni-icons type="close" size="24" color="#555555"></uni-icons>
+						</view>
+					</view>
+					
+					<scroll-view scroll-y="true" class="history-modal-content">
+						<view v-if="historyLoading" class="loading-container">
+							<text>加载中...</text>
+						</view>
+						<view v-else-if="submissionHistory.length === 0" class="empty-state">
+							<uni-icons type="inbox" size="48" color="#CCCCCC"></uni-icons>
+							<text class="empty-text">暂无提交记录</text>
+						</view>
+						<view v-else class="history-list">
+							<view 
+								v-for="(submission, index) in submissionHistory" 
+								:key="submission.id || index"
+								class="history-item"
+							>
+								<view class="history-item-header">
+									<view class="history-item-left">
+										<text class="history-round">第 {{ submission.round }} 次提交</text>
+										<text class="history-time">{{ formatTime(submission.create_time) }}</text>
+									</view>
+									<view class="history-item-right">
+										<view v-if="submission.status === 1 || submission.status === '1'" class="status-badge reviewed">
+											<text>已点评</text>
+										</view>
+										<view v-else class="status-badge pending">
+											<text>未点评</text>
+										</view>
+									</view>
+								</view>
+								
+								<view v-if="submission.file_name" class="history-files">
+									<view 
+										v-for="(fileName, fileIndex) in getFileList(submission.file_name)" 
+										:key="fileIndex"
+										class="file-item-small"
+									>
+										<uni-icons type="paperclip" size="16" color="#4C8AF2"></uni-icons>
+										<text class="file-name-small">{{ fileName }}</text>
+										<text class="file-size-small">{{ getFileSize(submission.file_url, fileIndex) }}</text>
+									</view>
+								</view>
+								
+								<view v-if="submission.contribution != null && currentTask.storyType !== 1" class="history-contribution">
+									<text class="contribution-label">贡献度：</text>
+									<text class="contribution-value">{{ formatContribution(submission.contribution) }}</text>
+								</view>
+								
+								<view v-if="submission.score != null && submission.score > 0" class="history-score">
+									<text class="score-label">得分：</text>
+									<text class="score-value">{{ submission.score }}分</text>
+								</view>
+								
+								<view v-if="submission.content" class="history-content">
+									<text class="content-label">备注：</text>
+									<text class="content-text">{{ submission.content }}</text>
+								</view>
+							</view>
+						</view>
+					</scroll-view>
+				</view>
+			</view>
+			</template>
 		</scroll-view>
 	</view>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
+import { onLoad, onShow } from '@dcloudio/uni-app';
 import { useCourseContextStore } from '@/store/courseContextStore';
+import { useAuthStore } from '@/store/authStore';
+import { getMySubmissions } from '@/api/task';
 
 const contextStore = useCourseContextStore();
-const { currentTask } = storeToRefs(contextStore);
+const authStore = useAuthStore();
+const { currentTask, currentCourseId, myTeam, teamMembers } = storeToRefs(contextStore);
+
+// 任务ID（从URL参数获取）
+const taskId = ref(null);
+const loading = ref(false);
+
+// 历史提交相关
+const showHistory = ref(false);
+const submissionHistory = ref([]);
+const historyLoading = ref(false);
 
 // [新增] 计算权限
 const permission = computed(() => {
@@ -159,6 +256,76 @@ const getTaskTypeLabel = (type) => {
     const map = { 1: '个人任务', 2: '团队(队长)', 3: '团队(全员)' };
     return map[type] || '普通任务';
 };
+
+// 加载任务详情
+const loadTaskDetail = async (id) => {
+    if (!id) {
+        console.warn('⚠️ 任务ID为空');
+        return;
+    }
+    
+    loading.value = true;
+    try {
+        console.log('🔄 开始加载任务详情，任务ID:', id);
+        
+        // 确保课程上下文已初始化
+        if (!currentCourseId.value) {
+            const storedCourseId = uni.getStorageSync('currentCourseId');
+            if (storedCourseId) {
+                console.log('📚 从本地存储恢复课程ID:', storedCourseId);
+                await contextStore.initCourseContext(storedCourseId);
+            }
+        }
+        
+        // 确保团队信息已加载
+        if (currentCourseId.value && (!myTeam.value.id || teamMembers.value.length === 0)) {
+            console.log('👥 加载团队信息...');
+            await contextStore.fetchTeamInfo(currentCourseId.value);
+        }
+        
+        // 加载任务详情
+        await contextStore.selectTask(id);
+        console.log('✅ 任务详情加载完成:', contextStore.currentTask);
+        
+    } catch (error) {
+        console.error('❌ 加载任务详情失败:', error);
+        uni.showToast({ title: '加载任务详情失败', icon: 'none' });
+    } finally {
+        loading.value = false;
+    }
+};
+
+// 页面加载时获取任务ID并加载详情
+onLoad((options) => {
+    console.log('📄 任务详情页面加载，参数:', options);
+    // 尝试从多个可能的参数名获取任务ID
+    const id = options.taskId || options.id || options.storyId || options.task_id;
+    if (id) {
+        taskId.value = Number(id) || id; // 尝试转换为数字，如果失败则使用原始值
+        console.log('✅ 从URL参数获取任务ID:', taskId.value);
+        loadTaskDetail(taskId.value);
+    } else {
+        console.warn('⚠️ 未找到任务ID参数，将在 onMounted 中尝试从 currentTask 获取');
+        // 不显示错误提示，等待 onMounted 从 currentTask 获取
+    }
+});
+
+// 页面显示时刷新数据
+onShow(() => {
+    if (taskId.value) {
+        loadTaskDetail(taskId.value);
+    }
+});
+
+onMounted(() => {
+    // 如果 onLoad 没有获取到 taskId，尝试从 currentTask 获取
+    if (!taskId.value && currentTask.value?.id) {
+        taskId.value = currentTask.value.id;
+        console.log('📄 从 currentTask 获取任务ID:', taskId.value);
+        // 获取到任务ID后，立即加载任务详情
+        loadTaskDetail(taskId.value);
+    }
+});
 
 const goBack = () => {
 	uni.navigateBack();
@@ -186,6 +353,97 @@ const goExcellentWorks = () => {
 	uni.navigateTo({
 		url: '/pages/index/ExcellentWorksView?taskId=T4-1'
 	});
+};
+
+// 显示历史提交悬浮窗
+const showHistoryModal = async () => {
+	showHistory.value = true;
+	await loadSubmissionHistory();
+};
+
+// 关闭历史提交悬浮窗
+const closeHistoryModal = () => {
+	showHistory.value = false;
+};
+
+// 加载历史提交记录
+const loadSubmissionHistory = async () => {
+	if (!currentTask.value?.id) {
+		console.warn('⚠️ 任务ID为空，无法加载历史提交');
+		return;
+	}
+	
+	historyLoading.value = true;
+	try {
+		const data = await getMySubmissions(currentTask.value.id);
+		submissionHistory.value = (data?.submissions || []).map(sub => {
+			// 处理 status 字段：如果是 Buffer 对象，转换为数字；如果是数字或字符串，也转换为数字
+			let statusValue = null;
+			if (sub.status != null) {
+				if (sub.status.type === 'Buffer' && Array.isArray(sub.status.data)) {
+					// Buffer 对象：取第一个字节
+					statusValue = sub.status.data[0] || 0;
+				} else {
+					// 数字或字符串：转换为数字
+					statusValue = Number(sub.status);
+					if (isNaN(statusValue)) statusValue = null;
+				}
+			}
+			
+			return {
+				id: sub.id,
+				round: sub.round || 0,
+				file_name: sub.file_name || '',
+				file_url: sub.file_url || '',
+				contribution: sub.contribution != null ? Number(sub.contribution) : null,
+				score: sub.score != null ? Number(sub.score) : null,
+				status: statusValue,
+				content: sub.content || '',
+				create_time: sub.create_time,
+				submit_name: sub.submit_name || ''
+			};
+		});
+		console.log('✅ 历史提交记录加载完成:', submissionHistory.value);
+	} catch (error) {
+		console.error('❌ 加载历史提交失败:', error);
+		uni.showToast({ title: '加载历史提交失败', icon: 'none' });
+	} finally {
+		historyLoading.value = false;
+	}
+};
+
+// 格式化时间
+const formatTime = (timeStr) => {
+	if (!timeStr) return '';
+	const date = new Date(timeStr);
+	const year = date.getFullYear();
+	const month = String(date.getMonth() + 1).padStart(2, '0');
+	const day = String(date.getDate()).padStart(2, '0');
+	const hours = String(date.getHours()).padStart(2, '0');
+	const minutes = String(date.getMinutes()).padStart(2, '0');
+	return `${year}-${month}-${day} ${hours}:${minutes}`;
+};
+
+// 解析文件名列表（多个文件用 | 分隔）
+const getFileList = (fileNames) => {
+	if (!fileNames) return [];
+	return fileNames.split('|').filter(name => name.trim());
+};
+
+// 获取文件大小（从URL推断，或显示默认值）
+const getFileSize = (fileUrls, index) => {
+	if (!fileUrls) return '';
+	const urls = fileUrls.split('|');
+	// 这里无法直接获取文件大小，可以尝试从文件名推断或显示默认值
+	// 实际项目中可以通过HEAD请求获取文件大小，这里简化处理
+	return '--';
+};
+
+// 格式化贡献度（0-1的小数转为百分比）
+const formatContribution = (contribution) => {
+	if (contribution == null) return '--';
+	const percent = contribution >= 1 ? contribution : contribution * 100;
+	return `${Math.round(percent)}%`;
 };
 </script>
 
@@ -470,5 +728,193 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 		color: #4C8AF2;
 		background: transparent;
 	}
+}
+
+.loading-container {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	padding: 100rpx 0;
+	font-size: 28rpx;
+	color: $text-light;
+}
+
+/* 历史提交悬浮窗 */
+.history-modal-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.5);
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 40rpx;
+}
+
+.history-modal {
+	background: #FFFFFF;
+	border-radius: 24rpx;
+	width: 100%;
+	max-width: 700rpx;
+	max-height: 80vh;
+	display: flex;
+	flex-direction: column;
+	box-shadow: 0 20rpx 60rpx rgba(0, 0, 0, 0.3);
+}
+
+.history-modal-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 30rpx 40rpx;
+	border-bottom: 2rpx solid $border-color;
+}
+
+.history-modal-title {
+	font-size: 36rpx;
+	font-weight: bold;
+	color: $text-color;
+}
+
+.history-modal-content {
+	flex: 1;
+	height: 0;
+	padding: 30rpx 40rpx;
+}
+
+.empty-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 100rpx 0;
+	gap: 20rpx;
+}
+
+.empty-text {
+	font-size: 28rpx;
+	color: $text-light;
+}
+
+.history-list {
+	display: flex;
+	flex-direction: column;
+	gap: 30rpx;
+}
+
+.history-item {
+	padding: 30rpx;
+	background: #F8F9FA;
+	border-radius: 16rpx;
+	border-left: 4rpx solid #4C8AF2;
+}
+
+.history-item-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	margin-bottom: 20rpx;
+}
+
+.history-item-left {
+	display: flex;
+	flex-direction: column;
+	gap: 8rpx;
+}
+
+.history-round {
+	font-size: 30rpx;
+	font-weight: bold;
+	color: $text-color;
+}
+
+.history-time {
+	font-size: 24rpx;
+	color: $text-light;
+}
+
+.history-item-right {
+	display: flex;
+	align-items: center;
+}
+
+.status-badge {
+	padding: 8rpx 16rpx;
+	border-radius: 8rpx;
+	font-size: 22rpx;
+	&.reviewed {
+		background: #E8F5E9;
+		color: #2ECC71;
+	}
+	&.pending {
+		background: #FFF3E0;
+		color: #F39C12;
+	}
+}
+
+.history-files {
+	display: flex;
+	flex-direction: column;
+	gap: 12rpx;
+	margin-bottom: 16rpx;
+}
+
+.file-item-small {
+	display: flex;
+	align-items: center;
+	gap: 12rpx;
+	padding: 12rpx;
+	background: #FFFFFF;
+	border-radius: 8rpx;
+}
+
+.file-name-small {
+	font-size: 26rpx;
+	color: $text-color;
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.file-size-small {
+	font-size: 22rpx;
+	color: $text-light;
+}
+
+.history-contribution,
+.history-score,
+.history-content {
+	display: flex;
+	align-items: flex-start;
+	gap: 12rpx;
+	margin-top: 16rpx;
+	font-size: 26rpx;
+}
+
+.contribution-label,
+.score-label,
+.content-label {
+	color: $text-light;
+	flex-shrink: 0;
+}
+
+.contribution-value {
+	color: #4C8AF2;
+	font-weight: 600;
+}
+
+.score-value {
+	color: #2ECC71;
+	font-weight: 600;
+}
+
+.content-text {
+	color: $text-color;
+	flex: 1;
+	line-height: 1.6;
 }
 </style>

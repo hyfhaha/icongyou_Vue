@@ -64,12 +64,15 @@ export const useSubmissionStore = defineStore('submission', () => {
       const uploadResults = await Promise.all(uploadPromises);
       
       // 假设 uploadFile 返回 { url: '...' }
-      const fileUrl = uploadResults.map(res => res.url).join(','); // 如果后端支持多个文件，用逗号分隔
+      const fileUrls = uploadResults.map(res => res.url);
+      const fileUrl = fileUrls.join('|'); // 多个文件用 | 分隔
+      const fileName = uploadedFiles.value.map(f => f.name).join('|'); // 文件名也用 | 分隔
 
       // 步骤2: 调用提交作业接口
       const payload = {
         course_id: currentTask.course_id || courseContextStore.currentCourseId,
         file_url: fileUrl,
+        file_name: fileName,
         content: submissionData.content || '', // 作业说明等
         team_contributions: submissionData.contributions || [] // 团队贡献度
       };

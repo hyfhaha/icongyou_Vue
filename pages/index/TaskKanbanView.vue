@@ -164,8 +164,9 @@ const closePopup = () => selectedTask.value = null;
 
 const enterDetail = () => {
 	if (selectedTask.value) {
-		contextStore.selectTask(selectedTask.value.id);
-		uni.navigateTo({ url: '/pages/index/TaskDetailView' });
+		const taskId = selectedTask.value.id;
+		contextStore.selectTask(taskId);
+		uni.navigateTo({ url: `/pages/index/TaskDetailView?taskId=${taskId}` });
 		closePopup();
 	}
 };

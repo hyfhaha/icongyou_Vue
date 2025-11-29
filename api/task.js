@@ -46,3 +46,8 @@ export function createTaskDiscussion(storyId, data) {
 export function recordTaskView(storyId) {
   return request.post(`/api/tasks/${storyId}/view`);
 }
+
+// 8. 获取我的历史提交记录
+export function getMySubmissions(storyId) {
+  return request.get(`/api/tasks/${storyId}/submissions/my`);
+}

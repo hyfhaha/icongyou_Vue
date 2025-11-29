@@ -271,7 +271,7 @@ onShow(() => {
 const handleTaskClick = (taskId) => {
   if (taskId) {
     contextStore.selectTask(taskId);
-    uni.navigateTo({ url: '/pages/index/TaskDetailView' });
+    uni.navigateTo({ url: `/pages/index/TaskDetailView?taskId=${taskId}` });
   }
 };
 

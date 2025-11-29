@@ -51,7 +51,8 @@
 				</view>
 			</view>
 
-			<view class="card-box" v-if="teamMembers && teamMembers.length > 0">
+			<!-- 只在团队任务时显示贡献度分配 -->
+			<view class="card-box" v-if="currentTask.storyType !== 1 && teamMembers && teamMembers.length > 0">
 				<view class="card-title-row">
 					<uni-icons type="staff-filled" size="20" color="#6C5BFF"></uni-icons>
 					<text class="card-title">团队成员贡献度</text>
@@ -76,20 +77,47 @@
 							</view>
 							
 							<view class="contribution-control">
-								<view class="ctrl-btn" @click="contextStore.updateMemberContribution(member.id, -1)">
+								<view class="ctrl-btn" @click="updateMemberContribution(member.id, -1)">
 									<uni-icons type="minus" size="14" color="#555"></uni-icons>
 								</view>
-								<text class="score-text">{{ member.contribution }}</text>
-								<view class="ctrl-btn" @click="contextStore.updateMemberContribution(member.id, 1)">
+								<input 
+									class="contribution-input"
+									type="number"
+									:value="member.contribution || 0"
+									@input="(e) => updateMemberContribution(member.id, Number(e.detail?.value || e.target?.value || 0))"
+									@blur="(e) => updateMemberContribution(member.id, Number(e.detail?.value || e.target?.value || 0))"
+									min="0"
+									max="100"
+									step="1"
+								/>
+								<view class="ctrl-btn" @click="updateMemberContribution(member.id, 1)">
 									<uni-icons type="plus" size="14" color="#555"></uni-icons>
 								</view>
+								<text class="percent-text">%</text>
 							</view>
 						</view>
 						
 						<view class="progress-track">
 							<view 
 								class="progress-bar" 
-								:style="{ width: (member.contribution / totalContribution * 100) + '%' }"
+								:style="{ width: (member.contribution || 0) + '%' }"
+							></view>
+						</view>
+					</view>
+					
+					<!-- 未分配贡献度显示 -->
+					<view v-if="unassignedContribution > 0" class="unassigned-row">
+						<view class="member-info">
+							<view class="avatar-circle unassigned">
+								<text>?</text>
+							</view>
+							<text class="member-name">未分配</text>
+						</view>
+						<text class="unassigned-text">{{ unassignedContribution }}%</text>
+						<view class="progress-track">
+							<view 
+								class="progress-bar unassigned-bar" 
+								:style="{ width: unassignedContribution + '%' }"
 							></view>
 						</view>
 					</view>
@@ -103,7 +131,7 @@
 					:class="{ disabled: uploadedFiles.length === 0 || isSubmitting }"
 					@click="handleSubmit"
 				>
-					{{ isSubmitting ? '提交中...' : '提交团队作业' }}
+					{{ isSubmitting ? '提交中...' : '提交作业' }}
 				</button>
 			</view>
 		</scroll-view>
@@ -118,7 +146,9 @@ import { useSubmissionStore } from '@/store/submissionStore';
 
 const contextStore = useCourseContextStore();
 const subStore = useSubmissionStore();
+import { useAuthStore } from '@/store/authStore';
 
+const authStore = useAuthStore();
 const { teamMembers, currentTask } = storeToRefs(contextStore);
 const { uploadedFiles, isSubmitting, taskInfo } = storeToRefs(subStore);
 
@@ -140,9 +170,41 @@ onUnmounted(() => {
 });
 
 const totalContribution = computed(() => {
-  const total = teamMembers.value.reduce((sum, m) => sum + m.contribution, 0);
-  return total === 0 ? 1 : total;
+  const total = teamMembers.value.reduce((sum, m) => sum + (m.contribution || 0), 0);
+  return total;
 });
+
+const unassignedContribution = computed(() => {
+  return Math.max(0, 100 - totalContribution.value);
+});
+
+// 更新成员贡献度（支持直接输入）
+const updateMemberContribution = (memberId, value) => {
+  const member = teamMembers.value.find(m => m.id === memberId);
+  if (!member) return;
+  
+  let newValue = value;
+  if (typeof value === 'number') {
+    // 直接设置值
+    newValue = Math.max(0, Math.min(100, value));
+  } else {
+    // 增量调整
+    const current = member.contribution || 0;
+    newValue = Math.max(0, Math.min(100, current + value));
+  }
+  
+  // 检查总和是否超过100
+  const otherTotal = teamMembers.value
+    .filter(m => m.id !== memberId)
+    .reduce((sum, m) => sum + (m.contribution || 0), 0);
+  
+  if (otherTotal + newValue > 100) {
+    newValue = Math.max(0, 100 - otherTotal);
+    uni.showToast({ title: '贡献度总和不能超过100%', icon: 'none' });
+  }
+  
+  contextStore.updateMemberContribution(memberId, newValue - (member.contribution || 0));
+};
 
 const radarChartData = computed(() => ({
   categories: teamMembers.value.map(m => m.name),
@@ -205,12 +267,45 @@ const formatFileSize = (bytes) => {
 // [修改] 提交处理，组装真实数据并调用store
 const handleSubmit = async () => {
   try {
-    // 1. 组装贡献度数据 (如果是团队任务)
-    const contributions = (teamMembers.value || []).map(member => ({
-        studentId: member.studentId,
-        // 后端需要的是0-1的小数，前端显示的是百分比整数
-        percent: member.contribution / 100 
-    }));
+    // 1. 组装贡献度数据
+    let contributions = [];
+    
+    // 如果是个人任务，默认贡献度100%
+    if (currentTask.value.storyType === 1) {
+      contributions = [{
+        studentId: authStore.userInfo?.id || null,
+        student_id: authStore.userInfo?.id || null,
+        percent: 1.0 // 个人任务默认100%
+      }];
+    } else {
+      // 团队任务：检查贡献度总和
+      const totalContrib = teamMembers.value.reduce((sum, m) => sum + (m.contribution || 0), 0);
+      if (totalContrib > 100) {
+        uni.showToast({ title: '贡献度总和不能超过100%', icon: 'none' });
+        return;
+      }
+      
+      contributions = (teamMembers.value || []).map(member => {
+        // 确保传递正确的用户ID
+        // member.userId 是用户ID（user.id），member.id 是 course_student.id
+        const userId = member.userId || member.id; // 优先使用 userId，如果没有则使用 id（兼容）
+        const contributionData = {
+          student_id: userId, // 用户ID（必需，用于后端匹配）
+          studentId: member.studentId || userId, // 学号或用户ID（兼容字段）
+          // 后端需要的是0-1的小数，前端显示的是百分比整数
+          percent: (member.contribution || 0) / 100 
+        };
+        console.log('📤 发送贡献度数据:', {
+          memberName: member.name,
+          userId: userId,
+          memberId: member.id, // course_student.id
+          studentId: member.studentId, // 学号
+          contribution: member.contribution,
+          percent: contributionData.percent
+        });
+        return contributionData;
+      });
+    }
 
     // 2. 执行提交 (store的submitWork会处理上传和接口调用)
     await subStore.submitWork({ contributions });
@@ -302,9 +397,50 @@ $border-color: #EAEAEA;
 .avatar-circle { width: 60rpx; height: 60rpx; border-radius: 50%; background: linear-gradient(135deg, #4C8AF2, #6C5BFF); color: white; font-size: 24rpx; display: flex; align-items: center; justify-content: center; font-weight: bold; }
 .member-name { font-size: 28rpx; font-weight: 500; color: $text-color; }
 
-.contribution-control { display: flex; align-items: center; gap: 16rpx; }
+.contribution-control { display: flex; align-items: center; gap: 12rpx; }
 .ctrl-btn { width: 44rpx; height: 44rpx; background: #F0F0F0; border-radius: 8rpx; display: flex; align-items: center; justify-content: center; &:active { background: #E0E0E0; } }
-.score-text { font-size: 28rpx; font-weight: bold; color: $theme-color; width: 50rpx; text-align: center; }
+.contribution-input {
+  width: 80rpx;
+  height: 60rpx;
+  font-size: 28rpx;
+  font-weight: bold;
+  color: $theme-color;
+  text-align: center;
+  border: 2rpx solid #E0E0E0;
+  border-radius: 8rpx;
+  background: #FAFAFA;
+  &:focus {
+    border-color: $theme-color;
+    background: #FFFFFF;
+  }
+}
+.percent-text {
+  font-size: 24rpx;
+  color: $text-light;
+  margin-left: -8rpx;
+}
+.unassigned-row {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  padding: 20rpx;
+  background: #FFF9E6;
+  border-radius: 16rpx;
+  margin-top: 20rpx;
+  border: 2rpx dashed #FFD700;
+}
+.unassigned {
+  background: linear-gradient(135deg, #FFD700, #FFA500) !important;
+}
+.unassigned-text {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #F39C12;
+  text-align: right;
+}
+.unassigned-bar {
+  background: linear-gradient(90deg, #FFD700, #FFA500) !important;
+}
 
 .progress-track { height: 12rpx; background: #F0F0F0; border-radius: 6rpx; overflow: hidden; }
 .progress-bar { height: 100%; background: linear-gradient(90deg, #4C8AF2, #6C5BFF); border-radius: 6rpx; transition: width 0.3s ease; }

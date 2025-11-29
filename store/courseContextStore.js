@@ -189,18 +189,24 @@ export const useCourseContextStore = defineStore('courseContext', () => {
         // 兼容多种学号字段命名方式
         const studentId = member.studentId || member.jobNumber || member.job_number || '';
         
+        // 重要：member.id 是 course_student 表的 id（如 10001），不是用户ID
+        // member.student_id 才是用户ID（user.id，如 17）
+        // 后端返回的数据中，student_id 字段就是用户ID
+        
         console.log('团队成员数据:', {
-          id: member.id,
+          id: member.id, // course_student.id
+          student_id: member.student_id, // user.id（用户ID）
           name: member.name,
-          studentId: studentId,
+          studentId: studentId, // 学号
           jobNumber: member.jobNumber,
           job_number: member.job_number
         });
         
         return {
-          id: member.id,
+          id: member.id, // course_student.id（保留用于其他用途）
+          userId: member.student_id, // 用户ID（user.id），用于提交时匹配贡献度
           name: member.name,
-          studentId: studentId,
+          studentId: studentId, // 学号
           isLeader: !!member.isLeader,
           contribution: member.contributionRate != null
             ? Math.round(member.contributionRate * 100)
@@ -380,7 +386,7 @@ export const useCourseContextStore = defineStore('courseContext', () => {
 
   const formatTaskDetail = (detail = {}) => {
     const story = detail.story || detail;
-    return {
+    const formatted = {
       id: story.id,
       storyName: story.story_name || story.storyName || story.title || `任务${story.id}`,
       storyDesc: story.story_desc || story.storyDesc || '',
@@ -393,6 +399,13 @@ export const useCourseContextStore = defineStore('courseContext', () => {
       materials: detail.materials || [],
       viewCount: detail.viewCount ?? 0
     };
+    
+    // 如果后端返回了权限信息，记录日志
+    if (detail.permission) {
+      console.log('✅ 后端返回权限信息:', detail.permission);
+    }
+    
+    return formatted;
   };
 
   const selectTask = async (taskId) => {
@@ -425,6 +438,7 @@ export const useCourseContextStore = defineStore('courseContext', () => {
   };
 
   const checkSubmissionPermission = () => {
+    // 如果后端返回了权限信息，直接使用
     if (currentTask.value?.permission) {
       const permission = currentTask.value.permission;
       return {
@@ -434,22 +448,78 @@ export const useCourseContextStore = defineStore('courseContext', () => {
         onlyLeaderCanSubmit: !!permission.onlyLeaderCanSubmit
       };
     }
+    
+    // 如果没有任务信息，返回不允许
+    if (!currentTask.value || !currentTask.value.id) {
+      return { allowed: false, reason: '任务信息未加载' };
+    }
+    
+    const storyType = currentTask.value.storyType ?? 1;
     const currentUserJobNumber = authStore.userInfo.jobNumber;
-    const myRole = teamMembers.value.find((member) => member.studentId === currentUserJobNumber);
-    if (!myRole && currentTask.value.storyType !== 1) {
-      return { allowed: false, reason: '未加入团队' };
+    
+    console.log('🔍 检查提交权限:', {
+      storyType,
+      currentUserJobNumber,
+      teamMembersCount: teamMembers.value.length,
+      myTeamId: myTeam.value.id,
+      teamMembers: teamMembers.value.map(m => ({ id: m.id, studentId: m.studentId, isLeader: m.isLeader }))
+    });
+    
+    // 个人任务（storyType === 1），不需要团队
+    if (storyType === 1) {
+      return { allowed: true, reason: '' };
     }
-    if (currentTask.value.storyType === 2 && myRole && !myRole.isLeader) {
-      return { allowed: false, reason: '本任务仅限队长提交' };
+    
+    // 团队任务（storyType === 2 或 3），需要检查团队信息
+    if (storyType === 2 || storyType === 3) {
+      // 检查是否有团队
+      if (!myTeam.value.id) {
+        console.warn('⚠️ 未找到团队信息');
+        return { allowed: false, reason: '未加入团队，无法提交团队任务' };
+      }
+      
+      // 检查用户是否在团队成员列表中
+      const myRole = teamMembers.value.find((member) => {
+        // 兼容多种匹配方式
+        const matchByStudentId = member.studentId && String(member.studentId) === String(currentUserJobNumber);
+        const matchById = member.id && String(member.id) === String(authStore.userInfo.id);
+        return matchByStudentId || matchById;
+      });
+      
+      if (!myRole) {
+        console.warn('⚠️ 用户不在团队成员列表中:', {
+          currentUserJobNumber,
+          userId: authStore.userInfo.id,
+          teamMembers: teamMembers.value
+        });
+        return { allowed: false, reason: '您不是该团队的成员' };
+      }
+      
+      // 团队任务类型 2：仅队长可提交
+      if (storyType === 2 && !myRole.isLeader) {
+        return { allowed: false, reason: '本任务仅限队长提交' };
+      }
+      
+      // 团队任务类型 3：全员可提交
+      return { allowed: true, reason: '' };
     }
+    
+    // 默认允许
     return { allowed: true, reason: '' };
   };
 
   const updateMemberContribution = (memberId, delta) => {
     const member = teamMembers.value.find((m) => m.id === memberId);
     if (member) {
-      const next = member.contribution + delta;
-      if (next >= 0 && next <= 100) member.contribution = next;
+      const current = member.contribution || 0;
+      const next = current + delta;
+      if (next >= 0 && next <= 100) {
+        member.contribution = next;
+      } else if (next < 0) {
+        member.contribution = 0;
+      } else {
+        member.contribution = 100;
+      }
     }
   };
 
