@@ -35,24 +35,29 @@
 							</view>
 						</view>
 					</view>
-					<view class="header-right">
-						<view class="rating-badge">
-							<text>进行中</text>
-						</view>
-						<text class="meta-text">提交 1次</text>
+				<view class="header-right">
+					<view class="rating-badge" :class="getStatusBadgeClass(currentTask.status)">
+						<text>{{ getStatusLabel(currentTask.status) }}</text>
 					</view>
 				</view>
-				
-				<view class="deadline-card">
-					<view class="deadline-item">
-						<text class="deadline-label">截止时间</text>
-						<text class="deadline-value">{{ currentTask.deadline }}</text>
+			</view>
+			
+			<view class="deadline-card">
+				<view class="deadline-item">
+					<view class="deadline-label">
+						<uni-icons type="calendar" size="16" color="#FFFFFF" style="opacity: 0.9;"></uni-icons>
+						<text>截止时间</text>
 					</view>
-					<view class="deadline-item" style="text-align: right;">
-						<text class="deadline-label">状态</text>
-						<text class="deadline-value" style="color: #F39C12;">{{ currentTask.status }}</text>
-					</view>
+					<text class="deadline-value">{{ formatDeadline(currentTask.deadline) }}</text>
 				</view>
+				<view class="deadline-item deadline-item-right">
+					<view class="deadline-label">
+						<uni-icons type="flag" size="16" color="#FFFFFF" style="opacity: 0.9;"></uni-icons>
+						<text>任务状态</text>
+					</view>
+					<text class="deadline-value" :style="{ color: getStatusColor(currentTask.status) }">{{ getStatusLabel(currentTask.status) }}</text>
+				</view>
+			</view>
 			</view>
 
 			<view class="card-box">
@@ -255,6 +260,60 @@ const permission = computed(() => {
 const getTaskTypeLabel = (type) => {
     const map = { 1: '个人任务', 2: '团队(队长)', 3: '团队(全员)' };
     return map[type] || '普通任务';
+};
+
+// 格式化截止时间
+const formatDeadline = (deadline) => {
+	if (!deadline) return '未设置';
+	try {
+		const date = new Date(deadline);
+		if (isNaN(date.getTime())) return deadline; // 如果无法解析，返回原始值
+		
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+		const hours = String(date.getHours()).padStart(2, '0');
+		const minutes = String(date.getMinutes()).padStart(2, '0');
+		return `${year}-${month}-${day} ${hours}:${minutes}`;
+	} catch (e) {
+		return deadline;
+	}
+};
+
+// 获取状态标签
+const getStatusLabel = (status) => {
+	const map = {
+		'completed': '已完成',
+		'submitted': '已提交',
+		'in-progress': '进行中',
+		'upcoming': '未开始',
+		'overdue': '已逾期'
+	};
+	return map[status] || '未知';
+};
+
+// 获取状态颜色
+const getStatusColor = (status) => {
+	const map = {
+		'completed': '#2ECC71', // 绿色 - 已点评
+		'submitted': '#F39C12', // 橙色 - 已提交未点评
+		'in-progress': '#4C8AF2', // 蓝色 - 进行中
+		'upcoming': '#95A5A6', // 灰色 - 未开始
+		'overdue': '#E74C3C' // 红色 - 已逾期
+	};
+	return map[status] || '#95A5A6';
+};
+
+// 获取状态徽章样式类
+const getStatusBadgeClass = (status) => {
+	const map = {
+		'completed': 'badge-completed',
+		'submitted': 'badge-submitted',
+		'in-progress': 'badge-in-progress',
+		'upcoming': 'badge-upcoming',
+		'overdue': 'badge-overdue'
+	};
+	return map[status] || 'badge-default';
 };
 
 // 加载任务详情
@@ -558,15 +617,66 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 		padding: 30rpx;
 		display: flex;
 		justify-content: space-between;
+		gap: 20rpx;
+	}
+	.deadline-item {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 8rpx;
+	}
+	.deadline-item:first-child {
+		border-right: 1rpx solid rgba(255, 255, 255, 0.2);
+		padding-right: 20rpx;
+	}
+	.deadline-item-right {
+		text-align: right;
+		align-items: flex-end;
+		padding-left: 20rpx;
 	}
 	.deadline-label {
-		font-size: 24rpx;
+		font-size: 22rpx;
 		color: #E0E7FF;
-		margin-bottom: 8rpx;
+		opacity: 0.8;
+		display: flex;
+		align-items: center;
+		gap: 8rpx;
+	}
+	.deadline-item-right .deadline-label {
+		justify-content: flex-end;
 	}
 	.deadline-value {
-		font-size: 30rpx;
+		font-size: 26rpx;
 		font-weight: 600;
+		line-height: 1.3;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.rating-badge {
+		background: rgba(255, 255, 255, 0.2);
+		backdrop-filter: blur(10px);
+		border-radius: 12rpx;
+		padding: 10rpx 16rpx;
+		font-size: 24rpx;
+		font-weight: 500;
+		margin-bottom: 10rpx;
+		
+		&.badge-completed {
+			background: rgba(46, 204, 113, 0.3); // 绿色 - 已完成
+		}
+		&.badge-submitted {
+			background: rgba(243, 156, 18, 0.3); // 橙色 - 已提交
+		}
+		&.badge-in-progress {
+			background: rgba(76, 138, 242, 0.3); // 蓝色 - 进行中
+		}
+		&.badge-upcoming {
+			background: rgba(149, 165, 166, 0.3); // 灰色 - 未开始
+		}
+		&.badge-overdue {
+			background: rgba(231, 76, 60, 0.3); // 红色 - 已逾期
+		}
 	}
 }
 
@@ -806,10 +916,13 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .history-item {
-	padding: 30rpx;
+	padding: 24rpx;
 	background: #F8F9FA;
 	border-radius: 16rpx;
 	border-left: 4rpx solid #4C8AF2;
+	box-sizing: border-box;
+	width: 100%;
+	overflow: hidden;
 }
 
 .history-item-header {
@@ -914,6 +1027,9 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 
 .content-text {
 	color: $text-color;
+	flex: 1;
+	word-break: break-word;
+	overflow-wrap: break-word;
 	flex: 1;
 	line-height: 1.6;
 }

@@ -13,7 +13,7 @@
 		<scroll-view scroll-y="true" class="page-scroll">
 			<view class="countdown-card">
 				<text class="countdown-label">距离任务完成还剩</text>
-				<text class="countdown-timer">{{ taskInfo.deadlineStr }}</text>
+				<text class="countdown-timer">{{ countdownTimer }}</text>
 				<text class="countdown-unit">天 : 时 : 分 : 秒</text>
 			</view>
 
@@ -60,9 +60,9 @@
 
 				<view class="charts-box">
 					<qiun-data-charts 
-						type="radar"
-						:opts="chartOpts"
-						:chartData="radarChartData"
+						type="pie"
+						:opts="pieChartOpts"
+						:chartData="pieChartData"
 					/>
 				</view>
 
@@ -152,6 +152,39 @@ const authStore = useAuthStore();
 const { teamMembers, currentTask } = storeToRefs(contextStore);
 const { uploadedFiles, isSubmitting, taskInfo } = storeToRefs(subStore);
 
+// 倒计时相关
+const countdownTimer = ref('00 : 00 : 00 : 00');
+let countdownInterval = null;
+
+// 计算倒计时
+const calculateCountdown = () => {
+	if (!currentTask.value?.deadline) {
+		countdownTimer.value = '-- : -- : -- : --';
+		return;
+	}
+	
+	try {
+		const deadline = new Date(currentTask.value.deadline);
+		const now = new Date();
+		const diff = deadline.getTime() - now.getTime();
+		
+		if (diff <= 0) {
+			countdownTimer.value = '00 : 00 : 00 : 00';
+			return;
+		}
+		
+		const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+		const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+		const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+		const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+		
+		countdownTimer.value = `${String(days).padStart(2, '0')} : ${String(hours).padStart(2, '0')} : ${String(minutes).padStart(2, '0')} : ${String(seconds).padStart(2, '0')}`;
+	} catch (e) {
+		console.error('计算倒计时失败:', e);
+		countdownTimer.value = '-- : -- : -- : --';
+	}
+};
+
 onMounted(() => {
     const permission = contextStore.checkSubmissionPermission();
     if (!permission.allowed) {
@@ -161,12 +194,23 @@ onMounted(() => {
             duration: 2000
         });
         setTimeout(() => uni.navigateBack(), 1500);
+        return;
     }
+    
+    // 初始化倒计时
+    calculateCountdown();
+    // 每秒更新一次倒计时
+    countdownInterval = setInterval(calculateCountdown, 1000);
 });
 
 // [新增] 页面卸载时，清空已选择的文件，防止带到其他任务
 onUnmounted(() => {
     subStore.clearFiles();
+    // 清除倒计时定时器
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+    }
 });
 
 const totalContribution = computed(() => {
@@ -206,28 +250,62 @@ const updateMemberContribution = (memberId, value) => {
   contextStore.updateMemberContribution(memberId, newValue - (member.contribution || 0));
 };
 
-const radarChartData = computed(() => ({
-  categories: teamMembers.value.map(m => m.name),
-  series: [{
-    name: "贡献度",
-    data: teamMembers.value.map(m => m.contribution)
-  }]
-}));
-
-const chartOpts = ref({
-  color: ["#4C8AF2"],
-  padding: [5, 5, 5, 5],
-  dataLabel: false,
-  legend: { show: false },
-  extra: {
-    radar: {
-      gridType: "circle",
-      gridColor: "#EAEAEA",
-      max: 100,
-      labelColor: "#666666",
-      border: true
+// 扇形图（饼图）数据
+const pieChartData = computed(() => {
+  const series = [];
+  const colors = ['#4C8AF2', '#6C5BFF', '#2ECC71', '#F39C12', '#E74C3C', '#9B59B6', '#1ABC9C', '#3498DB'];
+  
+  // 添加团队成员数据
+  teamMembers.value.forEach((member, index) => {
+    if (member.contribution > 0) {
+      series.push({
+        name: member.name,
+        value: member.contribution,
+        color: colors[index % colors.length]
+      });
     }
+  });
+  
+  // 添加未分配部分（灰色）
+  if (unassignedContribution.value > 0) {
+    series.push({
+      name: '未分配',
+      value: unassignedContribution.value,
+      color: '#95A5A6'
+    });
   }
+  
+  return {
+    series: [{
+      data: series
+    }]
+  };
+});
+
+const pieChartOpts = computed(() => {
+  const colors = pieChartData.value.series[0]?.data.map(item => item.color) || [];
+  return {
+    color: colors,
+    padding: [10, 10, 10, 10],
+    dataLabel: true,
+    legend: {
+      show: true,
+      position: 'bottom',
+      lineHeight: 25,
+      itemGap: 10
+    },
+    extra: {
+      pie: {
+        activeOpacity: 0.5,
+        activeRadius: 10,
+        offsetAngle: 0,
+        labelWidth: 15,
+        border: true,
+        borderWidth: 3,
+        borderColor: '#FFFFFF'
+      }
+    }
+  };
 });
 
 // [修改] 实现真实文件选择
@@ -310,7 +388,7 @@ const handleSubmit = async () => {
     // 2. 执行提交 (store的submitWork会处理上传和接口调用)
     await subStore.submitWork({ contributions });
     
-    // 3. 更新本地任务状态
+    // 3. 更新本地任务状态为已提交（未点评）
     if (currentTask.value && currentTask.value.id) {
         contextStore.updateTaskStatus(currentTask.value.id, 'submitted');
     }
@@ -387,7 +465,14 @@ $border-color: #EAEAEA;
 .delete-btn { padding: 16rpx; }
 
 /* 图表容器 */
-.charts-box { width: 100%; height: 500rpx; margin-bottom: 20rpx; }
+.charts-box { 
+	width: 100%; 
+	height: 600rpx; 
+	margin-bottom: 20rpx; 
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
 
 /* 成员列表 */
 .member-list { display: flex; flex-direction: column; gap: 30rpx; }

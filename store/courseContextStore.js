@@ -24,8 +24,41 @@ const toPercent = (value) => {
 };
 
 const deriveTaskStatus = (task) => {
+  // 如果后端直接返回了 status 字段，优先使用
   if (task.status) return task.status;
-  if (task.done) return 'completed';
+  
+  // 检查截止时间
+  let isOverdue = false;
+  if (task.end_time || task.deadline) {
+    try {
+      const deadline = new Date(task.end_time || task.deadline);
+      const now = new Date();
+      isOverdue = deadline.getTime() < now.getTime();
+    } catch (e) {
+      // 日期解析失败，忽略
+    }
+  }
+  
+  // 如果已提交，根据 work_status 和是否逾期判断
+  if (task.done || task.work_status !== null) {
+    // work_status: 1=已点评(completed), 0=未点评(submitted), null=未提交
+    if (task.work_status === 1) {
+      return 'completed';  // 已点评，直接返回已完成
+    } else if (task.work_status === 0 || task.done) {
+      // 已提交但未点评：如果过了截止时间，也视为已完成
+      if (isOverdue) {
+        return 'completed';
+      }
+      return 'submitted';  // 未过截止时间，返回已提交
+    }
+  }
+  
+  // 未提交且已逾期
+  if (isOverdue) {
+    return 'overdue';
+  }
+  
+  // 未提交且未逾期：根据任务类型判断
   return task.story_type === 1 ? 'in-progress' : 'upcoming';
 };
 
@@ -386,6 +419,16 @@ export const useCourseContextStore = defineStore('courseContext', () => {
 
   const formatTaskDetail = (detail = {}) => {
     const story = detail.story || detail;
+    
+    // 如果 story 没有 done 或 work_status 字段，但 myWork 存在，则设置
+    if (story.done === undefined && detail.myWork) {
+      story.done = true;
+    }
+    if (story.work_status === undefined && detail.myWork) {
+      // work_status: 1=已点评, 0=未点评, null=未提交
+      story.work_status = detail.myWork.status === 1 ? 1 : 0;
+    }
+    
     const formatted = {
       id: story.id,
       storyName: story.story_name || story.storyName || story.title || `任务${story.id}`,
