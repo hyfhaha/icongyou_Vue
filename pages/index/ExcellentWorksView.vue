@@ -13,11 +13,24 @@
 		</view>
 
 		<scroll-view scroll-y class="page-scroll">
-			<view class="task-banner">
+			<!-- 加载中提示 -->
+			<view v-if="loading" class="loading-container">
+				<text>加载中...</text>
+			</view>
+			
+			<!-- 任务横幅 -->
+			<view v-if="!loading && currentTask?.storyName" class="task-banner">
 				<text class="task-title">{{ currentTask.storyName }}</text>
 				<text class="task-desc">教师推荐优秀作业 · 可点赞收藏 · 支持下载附件</text>
 			</view>
+			
+			<!-- 空状态 -->
+			<view v-if="!loading && excellentWorksList.length === 0" class="empty-state">
+				<uni-icons type="inbox" size="64" color="#CCCCCC"></uni-icons>
+				<text class="empty-text">暂无优秀作业</text>
+			</view>
 
+			<!-- 优秀作业列表 -->
 			<view class="work-card" v-for="work in excellentWorksList" :key="work.id">
 				<view class="work-header">
 					<view class="author-info">
@@ -64,16 +77,49 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
+import { onLoad } from '@dcloudio/uni-app';
 import { useCourseContextStore } from '@/store/courseContextStore';
 
 const contextStore = useCourseContextStore();
 const { currentTask, excellentWorksList } = storeToRefs(contextStore);
 
-onMounted(() => {
-	if (currentTask.value.id) {
-		contextStore.fetchExcellentWorks(currentTask.value.id);
+const loading = ref(false);
+const taskId = ref(null);
+
+// 页面加载时获取任务ID
+onLoad((options) => {
+	// 优先从URL参数获取taskId
+	if (options.taskId) {
+		taskId.value = options.taskId;
+	} else if (currentTask.value?.id) {
+		taskId.value = currentTask.value.id;
+	}
+});
+
+onMounted(async () => {
+	loading.value = true;
+	try {
+		// 如果URL参数中有taskId，尝试加载任务详情
+		if (taskId.value && !currentTask.value?.id) {
+			await contextStore.selectTask(taskId.value);
+		}
+		
+		// 确定要使用的taskId
+		const targetTaskId = taskId.value || currentTask.value?.id;
+		
+		if (targetTaskId) {
+			await contextStore.fetchExcellentWorks(targetTaskId);
+		} else {
+			console.warn('⚠️ 未找到任务ID，无法加载优秀作业');
+			uni.showToast({ title: '任务ID不存在', icon: 'none' });
+		}
+	} catch (error) {
+		console.error('❌ 加载优秀作业失败:', error);
+		uni.showToast({ title: '加载失败', icon: 'none' });
+	} finally {
+		loading.value = false;
 	}
 });
 
@@ -270,5 +316,28 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	align-items: center;
 	justify-content: center;
 	gap: 10rpx;
+}
+
+.loading-container {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 100rpx 0;
+	font-size: 28rpx;
+	color: $text-light;
+}
+
+.empty-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 150rpx 0;
+	gap: 20rpx;
+}
+
+.empty-text {
+	font-size: 28rpx;
+	color: $text-light;
 }
 </style>

@@ -626,22 +626,31 @@ export const useCourseContextStore = defineStore('courseContext', () => {
     if (!targetId) return;
     try {
       const list = await getExcellentWorks(targetId);
-      excellentWorksList.value = (list || []).map((item) => ({
-        id: item.workId || item.id,
-        studentName: item.student?.name || item.studentName || '',
-        teamName: item.teamName || '',
-        score: item.score ?? 0,
-        title: item.title || item.summary || '',
-        summary: item.summary || '',
-        teacherComment: item.teacherComment || '',
-        attachments: item.attachments || [],
-        likes: item.likeCount ?? item.likes ?? 0,
-        isLiked: item.liked ?? false,
-        isCollected: item.bookmarked ?? item.favorited ?? false,
-        avatarChar: (item.student?.name || item.studentName || '').charAt(0) || ''
-      }));
+      excellentWorksList.value = (list || []).map((item) => {
+        // 处理文件名（多个文件用|分隔）
+        const fileNames = item.file_name ? item.file_name.split('|').filter(f => f.trim()) : [];
+        
+        // 获取学生姓名（优先使用submit_name，因为这是提交人名字）
+        const studentName = item.submit_name || item.user_name || '';
+        
+        return {
+          id: item.id,
+          studentName: studentName,
+          teamName: item.group_name || '',
+          score: item.score != null ? Number(item.score) : 0,
+          title: item.content ? (item.content.length > 50 ? item.content.substring(0, 50) + '...' : item.content) : '优秀作业',
+          summary: item.content || '',
+          teacherComment: item.content || '', // 评语字段
+          attachments: fileNames,
+          likes: item.like_count != null ? Number(item.like_count) : 0,
+          isLiked: item.liked ?? false,
+          isCollected: item.bookmarked ?? item.favorited ?? false,
+          avatarChar: studentName.charAt(0) || '?'
+        };
+      });
     } catch (error) {
       showError('获取优秀作业失败', error);
+      excellentWorksList.value = [];
     }
   };
 
@@ -666,19 +675,26 @@ export const useCourseContextStore = defineStore('courseContext', () => {
   };
 
   const toggleWorkCollect = async (workId) => {
-    const taskId = currentTask.value.id;
-    if (!taskId) return;
-    const work = excellentWorksList.value.find((item) => item.id === workId);
-    if (!work) return;
+    const taskId = currentTask.value?.id;
+    if (!taskId) {
+      uni.showToast({ title: '任务ID不存在', icon: 'none' });
+      return;
+    }
+    const work = excellentWorksList.value.find((item) => String(item.id) === String(workId));
+    if (!work) {
+      uni.showToast({ title: '作业不存在', icon: 'none' });
+      return;
+    }
     try {
       const result = await bookmarkExcellentWork(taskId, workId);
       if (result) {
-        work.isCollected = result.bookmarked ?? !work.isCollected;
+        work.isCollected = result.bookmarked ?? result.favorited ?? !work.isCollected;
       } else {
         work.isCollected = !work.isCollected;
       }
     } catch (error) {
-      showError('收藏失败', error);
+      console.error('收藏失败:', error);
+      uni.showToast({ title: error.message || '收藏失败', icon: 'none' });
     }
   };
 

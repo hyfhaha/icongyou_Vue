@@ -31,9 +31,12 @@
 				:class="message.role"
 			>
 				<view class="avatar" :class="message.role">
-					{{ message.role === 'user' ? '我' : 'AI' }}
+					{{ message.role === 'user' ? '我' : (message.role === 'ai' ? 'AI' : (message.userName ? message.userName.charAt(0) : '?')) }}
 				</view>
 				<view class="bubble">
+					<view v-if="message.role === 'reply'" class="reply-header">
+						<text class="reply-name">{{ message.userName }}</text>
+					</view>
 					<text class="bubble-text">{{ message.content }}</text>
 					<text class="timestamp">{{ message.time }}</text>
 				</view>
@@ -69,8 +72,9 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue';
+import { ref, nextTick, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
+import { onLoad } from '@dcloudio/uni-app';
 // 引入 Store
 import { useChatStore } from '@/store/chatStore';
 import { useCourseContextStore } from '@/store/courseContextStore';
@@ -85,6 +89,39 @@ const { currentTask } = storeToRefs(contextStore);
 
 const draft = ref('');
 const scrollTarget = ref('');
+const storyId = ref(null);
+
+// 页面加载时获取任务ID并加载历史记录
+onLoad((options) => {
+	// 尝试从URL参数获取taskId
+	if (options.taskId) {
+		storyId.value = options.taskId;
+	} else if (currentTask.value?.id) {
+		storyId.value = currentTask.value.id;
+	}
+	
+	// 加载历史记录
+	if (storyId.value) {
+		chatStore.loadHistory(storyId.value);
+	} else {
+		// 如果没有任务ID，显示欢迎消息
+		chatStore.loadHistory(null);
+	}
+});
+
+// 页面挂载后确保任务信息已加载
+onMounted(async () => {
+	// 如果URL参数中有taskId，尝试加载任务详情
+	if (storyId.value && !currentTask.value?.id) {
+		await contextStore.selectTask(storyId.value);
+	}
+	
+	// 如果还没有storyId，尝试从currentTask获取
+	if (!storyId.value && currentTask.value?.id) {
+		storyId.value = currentTask.value.id;
+		chatStore.loadHistory(storyId.value);
+	}
+});
 
 const goBack = () => {
 	uni.navigateBack();
@@ -94,12 +131,22 @@ const handleSend = async () => {
 	const content = draft.value.trim();
 	if (!content) return;
 
+	// 确保有storyId
+	if (!storyId.value && currentTask.value?.id) {
+		storyId.value = currentTask.value.id;
+	}
+	
+	if (!storyId.value) {
+		uni.showToast({ title: '任务ID不存在', icon: 'none' });
+		return;
+	}
+
 	// 清空输入框
 	draft.value = '';
 	
 	// 发送并滚动到底部
 	scrollToBottom();
-	await chatStore.sendMessage(content);
+	await chatStore.sendMessage(content, storyId.value);
 	scrollToBottom();
 };
 
@@ -192,6 +239,9 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 .message-row.user {
 	flex-direction: row-reverse;
 }
+.message-row.reply {
+	flex-direction: row;
+}
 .avatar {
 	width: 68rpx;
 	height: 68rpx;
@@ -210,6 +260,9 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 .avatar.ai {
 	background: linear-gradient(135deg, #34D399, #10B981);
 }
+.avatar.reply {
+	background: linear-gradient(135deg, #F59E0B, #EF4444);
+}
 .bubble {
 	max-width: 70%;
 	padding: 20rpx 24rpx;
@@ -226,6 +279,19 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 .message-row.ai .bubble {
 	border-top-left-radius: 4rpx;
 }
+.message-row.reply .bubble {
+	border-top-left-radius: 4rpx;
+	background: #FFFFFF;
+	border: 2rpx solid #E5E7EB;
+}
+.reply-header {
+	margin-bottom: 8rpx;
+}
+.reply-name {
+	font-size: 24rpx;
+	color: #6B7280;
+	font-weight: 600;
+}
 .bubble-text {
 	font-size: 28rpx;
 	line-height: 1.5;
@@ -240,6 +306,9 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 .message-row.user .timestamp {
 	color: rgba(255,255,255,0.7);
+}
+.message-row.reply .timestamp {
+	color: $text-light;
 }
 
 /* 输入中动画 */

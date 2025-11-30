@@ -19,11 +19,11 @@
 			</view>
 			
 			<!-- 任务详情内容 -->
-			<template v-else>
+			<template v-else-if="currentTask">
 			<view class="task-header-card">
 				<view class="header-top">
 					<view class="header-left">
-						<text class="task-title">{{ currentTask.storyName }}</text>
+						<text class="task-title">{{ currentTask.storyName || '未知任务' }}</text>
 						<view class="meta-row">
 							<view class="meta-tag">
 								<uni-icons type="staff-filled" size="14" color="#FFFFFF"></uni-icons>
@@ -31,7 +31,7 @@
 							</view>
 							<view class="meta-tag">
 								<uni-icons type="paperplane-filled" size="14" color="#FFFFFF"></uni-icons>
-								<text>{{ currentTask.totalScore }}分</text>
+								<text>{{ currentTask.totalScore || 0 }}分</text>
 							</view>
 						</view>
 					</view>
@@ -64,7 +64,7 @@
 				<view class="info-grid">
 					<view class="info-item">
 						<text class="info-label">任务名称</text>
-						<text class="info-value">{{ currentTask.storyName }}</text>
+						<text class="info-value">{{ currentTask.storyName || '未知任务' }}</text>
 					</view>
 					<view class="info-item">
 						<text class="info-label">任务类型</text>
@@ -72,7 +72,7 @@
 					</view>
 					<view class="info-item">
 						<text class="info-label">任务总分</text>
-						<text class="info-value">{{ currentTask.totalScore }}</text>
+						<text class="info-value">{{ currentTask.totalScore || 0 }}</text>
 					</view>
 					<view class="info-item">
 						<text class="info-label">提交限制</text>
@@ -105,7 +105,7 @@
 				<view class="req-list">
 					<view class="req-item">
 						<view class="req-number"><text>1</text></view>
-						<text class="req-text">{{ currentTask.storyDesc }}</text>
+						<text class="req-text">{{ currentTask.storyDesc || currentTask.story_desc || '暂无要求事项' }}</text>
 					</view>
 				</view>
 			</view>
@@ -132,11 +132,11 @@
 			<view class="button-group">
 				<button 
 					class="button-primary" 
-					:disabled="!permission.allowed" 
-					:class="{ disabled: !permission.allowed }"
+					:disabled="!permission || !permission.allowed" 
+					:class="{ disabled: !permission || !permission.allowed }"
 					@click="openSubmitModal"
 				>
-					<text>{{ permission.allowed ? '提交作业' : permission.reason }}</text>
+					<text>{{ permission && permission.allowed ? '提交作业' : (permission?.reason || '加载中...') }}</text>
 				</button>
 				
 				<button class="button-secondary" @click="goAIHelper">
@@ -225,6 +225,7 @@
 					</scroll-view>
 				</view>
 			</view>
+			
 			</template>
 		</scroll-view>
 	</view>
@@ -251,9 +252,16 @@ const showHistory = ref(false);
 const submissionHistory = ref([]);
 const historyLoading = ref(false);
 
+
 // [新增] 计算权限
 const permission = computed(() => {
-    return contextStore.checkSubmissionPermission();
+    try {
+        const perm = contextStore.checkSubmissionPermission();
+        return perm || { allowed: false, reason: '加载中...' };
+    } catch (error) {
+        console.error('获取权限失败:', error);
+        return { allowed: false, reason: '加载中...' };
+    }
 });
 
 // [新增] 任务类型标签转换
@@ -392,8 +400,8 @@ const goBack = () => {
 
 const openSubmitModal = () => {
 	// [新增] 再次防守逻辑，防止绕过 UI 禁用点击
-	if (!permission.value.allowed) {
-		uni.showToast({ title: permission.value.reason, icon: 'none' });
+	if (!permission.value || !permission.value.allowed) {
+		uni.showToast({ title: permission.value?.reason || '暂无权限', icon: 'none' });
 		return;
 	}
 	
@@ -403,14 +411,22 @@ const openSubmitModal = () => {
 };
 
 const goAIHelper = () => {
+	if (!currentTask.value?.id) {
+		uni.showToast({ title: '任务信息不存在', icon: 'none' });
+		return;
+	}
 	uni.navigateTo({
-		url: '/pages/index/AITutorView?taskId=T4-1'
+		url: `/pages/index/AITutorView?taskId=${currentTask.value.id}`
 	});
 };
 
 const goExcellentWorks = () => {
+	if (!currentTask.value?.id) {
+		uni.showToast({ title: '任务信息不存在', icon: 'none' });
+		return;
+	}
 	uni.navigateTo({
-		url: '/pages/index/ExcellentWorksView?taskId=T4-1'
+		url: `/pages/index/ExcellentWorksView?taskId=${currentTask.value.id}`
 	});
 };
 
@@ -504,6 +520,7 @@ const formatContribution = (contribution) => {
 	const percent = contribution >= 1 ? contribution : contribution * 100;
 	return `${Math.round(percent)}%`;
 };
+
 </script>
 
 <style lang="scss" scoped>
@@ -893,6 +910,8 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	flex: 1;
 	height: 0;
 	padding: 30rpx 40rpx;
+	box-sizing: border-box;
+	overflow-x: hidden; /* 防止横向滚动 */
 }
 
 .empty-state {
@@ -922,7 +941,9 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	border-left: 4rpx solid #4C8AF2;
 	box-sizing: border-box;
 	width: 100%;
+	max-width: 100%;
 	overflow: hidden;
+	min-width: 0; /* 允许flex子元素收缩 */
 }
 
 .history-item-header {
@@ -930,18 +951,26 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	justify-content: space-between;
 	align-items: flex-start;
 	margin-bottom: 20rpx;
+	gap: 16rpx;
+	min-width: 0; /* 允许flex子元素收缩 */
 }
 
 .history-item-left {
 	display: flex;
 	flex-direction: column;
 	gap: 8rpx;
+	flex: 1;
+	min-width: 0; /* 允许文本收缩 */
+	overflow: hidden;
 }
 
 .history-round {
 	font-size: 30rpx;
 	font-weight: bold;
 	color: $text-color;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .history-time {
@@ -982,6 +1011,9 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	padding: 12rpx;
 	background: #FFFFFF;
 	border-radius: 8rpx;
+	width: 100%;
+	box-sizing: border-box;
+	min-width: 0; /* 允许flex子元素收缩 */
 }
 
 .file-name-small {
@@ -1006,6 +1038,8 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	gap: 12rpx;
 	margin-top: 16rpx;
 	font-size: 26rpx;
+	width: 100%;
+	min-width: 0; /* 允许flex子元素收缩 */
 }
 
 .contribution-label,
@@ -1028,9 +1062,222 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 .content-text {
 	color: $text-color;
 	flex: 1;
+	min-width: 0; /* 允许文本收缩 */
 	word-break: break-word;
 	overflow-wrap: break-word;
-	flex: 1;
 	line-height: 1.6;
+	max-width: 100%;
+}
+
+/* 讨论/答疑悬浮窗 */
+.discussion-modal-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.5);
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 40rpx;
+}
+
+.discussion-modal {
+	background: #FFFFFF;
+	border-radius: 24rpx;
+	width: 100%;
+	max-width: 700rpx;
+	max-height: 85vh;
+	display: flex;
+	flex-direction: column;
+	box-shadow: 0 20rpx 60rpx rgba(0, 0, 0, 0.3);
+}
+
+.discussion-modal-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 30rpx 40rpx;
+	border-bottom: 2rpx solid $border-color;
+	flex-shrink: 0;
+}
+
+.discussion-modal-title {
+	font-size: 36rpx;
+	font-weight: bold;
+	color: $text-color;
+}
+
+.discussion-modal-content {
+	flex: 1;
+	height: 0;
+	padding: 30rpx 40rpx;
+	overflow-y: auto;
+}
+
+.discussion-list {
+	display: flex;
+	flex-direction: column;
+	gap: 24rpx;
+}
+
+.discussion-item {
+	display: flex;
+	gap: 20rpx;
+	padding: 20rpx;
+	background: #F8F9FA;
+	border-radius: 16rpx;
+	
+	&.is-ai {
+		background: #F0F7FF;
+		border-left: 4rpx solid #4C8AF2;
+	}
+	
+	&.is-reply {
+		margin-left: 60rpx;
+		background: #FAFAFA;
+	}
+}
+
+.discussion-avatar {
+	width: 64rpx;
+	height: 64rpx;
+	border-radius: 50%;
+	background: linear-gradient(135deg, #4C8AF2, #6C5BFF);
+	color: white;
+	font-size: 24rpx;
+	font-weight: bold;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	
+	&.ai-avatar {
+		background: linear-gradient(135deg, #A855F7, #EC4899);
+	}
+}
+
+.discussion-content-wrapper {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 12rpx;
+}
+
+.discussion-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.discussion-author {
+	font-size: 28rpx;
+	font-weight: 600;
+	color: $text-color;
+}
+
+.discussion-time {
+	font-size: 22rpx;
+	color: $text-light;
+}
+
+.discussion-text {
+	font-size: 28rpx;
+	color: $text-color;
+	line-height: 1.6;
+	word-break: break-word;
+}
+
+.discussion-actions {
+	display: flex;
+	gap: 20rpx;
+	margin-top: 8rpx;
+}
+
+.action-btn {
+	display: flex;
+	align-items: center;
+	gap: 8rpx;
+	padding: 8rpx 16rpx;
+	background: #F0F0F0;
+	border-radius: 8rpx;
+	font-size: 24rpx;
+	color: #4C8AF2;
+	
+	&:active {
+		background: #E0E0E0;
+	}
+}
+
+.discussion-input-area {
+	padding: 24rpx 40rpx;
+	border-top: 2rpx solid $border-color;
+	flex-shrink: 0;
+	background: #FFFFFF;
+}
+
+.reply-preview {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 12rpx 16rpx;
+	background: #F0F7FF;
+	border-radius: 8rpx;
+	margin-bottom: 16rpx;
+}
+
+.reply-preview-text {
+	font-size: 24rpx;
+	color: #4C8AF2;
+	flex: 1;
+}
+
+.reply-close {
+	padding: 4rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.input-wrapper {
+	display: flex;
+	align-items: flex-end;
+	gap: 16rpx;
+}
+
+.discussion-textarea {
+	flex: 1;
+	min-height: 80rpx;
+	max-height: 200rpx;
+	padding: 16rpx;
+	background: #F8F9FA;
+	border-radius: 12rpx;
+	font-size: 28rpx;
+	color: $text-color;
+	border: 2rpx solid #E0E0E0;
+	box-sizing: border-box;
+}
+
+.send-btn {
+	width: 80rpx;
+	height: 80rpx;
+	background: linear-gradient(135deg, #4C8AF2, #6C5BFF);
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	box-shadow: 0 4rpx 12rpx rgba(76, 138, 242, 0.3);
+	
+	&:active {
+		opacity: 0.8;
+	}
+	
+	&:disabled {
+		background: #E0E0E0;
+		box-shadow: none;
+	}
 }
 </style>

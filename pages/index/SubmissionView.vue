@@ -77,20 +77,20 @@
 							</view>
 							
 							<view class="contribution-control">
-								<view class="ctrl-btn" @click="updateMemberContribution(member.id, -1)">
+								<view class="ctrl-btn" @click="updateMemberContribution(member.id, -1, true)">
 									<uni-icons type="minus" size="14" color="#555"></uni-icons>
 								</view>
 								<input 
 									class="contribution-input"
 									type="number"
 									:value="member.contribution || 0"
-									@input="(e) => updateMemberContribution(member.id, Number(e.detail?.value || e.target?.value || 0))"
-									@blur="(e) => updateMemberContribution(member.id, Number(e.detail?.value || e.target?.value || 0))"
+									@input="(e) => updateMemberContribution(member.id, Number(e.detail?.value || e.target?.value || 0), false)"
+									@blur="(e) => updateMemberContribution(member.id, Number(e.detail?.value || e.target?.value || 0), false)"
 									min="0"
 									max="100"
 									step="1"
 								/>
-								<view class="ctrl-btn" @click="updateMemberContribution(member.id, 1)">
+								<view class="ctrl-btn" @click="updateMemberContribution(member.id, 1, true)">
 									<uni-icons type="plus" size="14" color="#555"></uni-icons>
 								</view>
 								<text class="percent-text">%</text>
@@ -222,19 +222,20 @@ const unassignedContribution = computed(() => {
   return Math.max(0, 100 - totalContribution.value);
 });
 
-// 更新成员贡献度（支持直接输入）
-const updateMemberContribution = (memberId, value) => {
+// 更新成员贡献度（支持直接输入和增量调整）
+const updateMemberContribution = (memberId, value, isIncrement = false) => {
   const member = teamMembers.value.find(m => m.id === memberId);
   if (!member) return;
   
-  let newValue = value;
-  if (typeof value === 'number') {
-    // 直接设置值
-    newValue = Math.max(0, Math.min(100, value));
-  } else {
-    // 增量调整
-    const current = member.contribution || 0;
+  const current = member.contribution || 0;
+  let newValue;
+  
+  if (isIncrement) {
+    // 增量调整（点击加减号时）
     newValue = Math.max(0, Math.min(100, current + value));
+  } else {
+    // 直接设置值（输入框输入时）
+    newValue = Math.max(0, Math.min(100, value));
   }
   
   // 检查总和是否超过100
@@ -244,10 +245,13 @@ const updateMemberContribution = (memberId, value) => {
   
   if (otherTotal + newValue > 100) {
     newValue = Math.max(0, 100 - otherTotal);
-    uni.showToast({ title: '贡献度总和不能超过100%', icon: 'none' });
+    if (isIncrement) {
+      uni.showToast({ title: '贡献度总和不能超过100%', icon: 'none' });
+    }
   }
   
-  contextStore.updateMemberContribution(memberId, newValue - (member.contribution || 0));
+  // 更新store中的贡献度
+  contextStore.updateMemberContribution(memberId, newValue - current);
 };
 
 // 扇形图（饼图）数据
