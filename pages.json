@@ -82,6 +82,23 @@
 			"style": {
 				"navigationBarTitleText": "设置"
 			}
+		},
+		{
+		    "path": "pages/index/UserProfileView",
+		    "style": { "navigationBarTitleText": "个人资料" }
+		},
+		{
+		    "path": "pages/index/HelpView",
+		    "style": { "navigationBarTitleText": "帮助中心" }
+		},
+		{
+		    "path": "pages/index/AboutView",
+		    "style": { "navigationBarTitleText": "关于我们" }
+		},
+		{
+			"path": "pages/index/AchievementsView",
+			"style": {"navigationBarTitleText": "我的成就",
+						"navigationStyle": "custom" }
 		}
 	],
 	"globalStyle": {

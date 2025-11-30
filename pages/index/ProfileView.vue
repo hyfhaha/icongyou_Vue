@@ -13,32 +13,34 @@
 						<text>{{ userInfo.nickname ? userInfo.nickname.charAt(0) : '未' }}</text>
 					</view>
 					
-					<view class="edit-button">
+					<view class="edit-button" @click="handleMenuClick('profile')">
 						<uni-icons type="compose" size="14" color="#666"></uni-icons>
 					</view>
 				</view>
 				<view class="profile-info">
 					<text class="profile-name">{{ userInfo.nickname }}</text>
 					<text class="profile-meta">学号: {{ userInfo.jobNumber }}</text>
-					<text class="profile-meta">软件工程专业</text>
+					<text class="profile-meta">{{ userInfo.deptName }}</text>
 				</view>
 			</view>
 		</view>
 
-		<view class="stats-card">
-			<view class="stat-item">
-				<text class="stat-value" style="color: #4C8AF2;">{{ userStats.courseCount }}</text>
-				<text class="stat-label">课程数</text>
-			</view>
-			<view class="stat-item">
-				<text class="stat-value" style="color: #2ECC71;">{{ userStats.completedTasks }}</text>
-				<text class="stat-label">已完成</text>
-			</view>
-			<view class="stat-item">
-				<text class="stat-value" style="color: #9B59B6;">{{ userStats.avgScore }}</text>
-				<text class="stat-label">平均分</text>
-			</view>
-		</view>
+<view class="stats-card">
+        <view class="stat-item">
+            <text class="stat-value" style="color: #4C8AF2;">{{ userStats.courseCount }}</text>
+            <text class="stat-label">课程数</text>
+        </view>
+        <view class="stat-item">
+            <text class="stat-value" style="color: #2ECC71;">{{ userStats.completedTasks }}</text>
+            <text class="stat-label">已完成</text>
+        </view>
+        <view class="stat-item">
+            <text class="stat-value" style="color: #9B59B6;">
+                {{ settingsStore.preferences.privacyMode ? '***' : userStats.avgScore }}
+            </text>
+            <text class="stat-label">平均分</text>
+        </view>
+    </view>
 
 		<scroll-view scroll-y="true" class="menu-scroll">
 			<view class="menu-group">
@@ -111,26 +113,31 @@
 </template>
 
 <script setup>
+import { onShow } from '@dcloudio/uni-app';
 import { storeToRefs } from 'pinia';
 import { useAuthStore } from '@/store/authStore';
+import { useSettingsStore } from '@/store/settingsStore';
 
+const settingsStore = useSettingsStore();
 const authStore = useAuthStore();
-// 保持响应式
 const { userInfo, userStats } = storeToRefs(authStore);
 
-// 菜单定义
+// [修改] 每次进入页面刷新统计数据
+onShow(() => {
+	authStore.fetchGlobalStats();
+});
+
+// [修改] 移除 '修改密码'
 const accountMenu = [
   { id: 'profile', label: '个人资料', icon: 'person', color: '#4C8AF2' },
-  // [新增] 关联 SettingsView
-  { id: 'settings', label: '系统设置', icon: 'gear', color: '#60A5FA' },
-  { id: 'password', label: '修改密码', icon: 'locked', color: '#6C5BFF' }
+  { id: 'settings', label: '系统设置', icon: 'gear', color: '#60A5FA' }
 ];
 
 const learningMenu = [
   { id: 'my-courses', label: '我的课程', icon: 'pyq', color: '#2ECC71' },
-  { id: 'my-tasks', label: '我的任务', icon: 'list', color: '#9B59B6' },
-  { id: 'achievements', label: '我的成就', icon: 'map-filled', color: '#F39C12' },
-  { id: 'favorites', label: '我的收藏', icon: 'heart', color: '#E74C3C' }
+  //{ id: 'my-tasks', label: '我的任务', icon: 'list', color: '#9B59B6' },
+  { id: 'achievements', label: '我的成就', icon: 'map-filled', color: '#F39C12' }
+  //{ id: 'favorites', label: '我的收藏', icon: 'heart', color: '#E74C3C' }
 ];
 
 const settingsMenu = [
@@ -140,16 +147,48 @@ const settingsMenu = [
 ];
 
 const handleMenuClick = (id) => {
-  console.log('Menu clicked:', id);
-  if (id === 'settings') {
-      // [修复] 跳转到设置页
+  switch (id) {
+    case 'profile':
+      // 个人资料详情页 (只读)
+      uni.navigateTo({ url: '/pages/index/UserProfileView' });
+      break;
+      
+    case 'settings':
       uni.navigateTo({ url: '/pages/index/SettingsView' });
-  } else if (id === 'my-courses') {
-      // 跳转到底部栏的课程页
+      break;
+      
+    case 'my-courses':
       uni.switchTab({ url: '/pages/index/CourseListView' });
-  } else {
-      // 其他占位
+      break;
+      
+    case 'my-tasks':
+      // [修改] Plan A: 跳转课程列表并提示
+      uni.switchTab({ url: '/pages/index/CourseListView' });
+      setTimeout(() => {
+          uni.showToast({ title: '请进入具体课程查看任务地图', icon: 'none', duration: 2000 });
+      }, 300);
+      break;
+      
+    case 'help':
+      uni.navigateTo({ url: '/pages/index/HelpView' });
+      break;
+      
+    case 'about':
+      uni.navigateTo({ url: '/pages/index/AboutView' });
+      break;
+      
+    // 暂缓的功能
+    case 'achievements':
+          // [修改] 现在可以跳转了
+          uni.navigateTo({ url: '/pages/index/AchievementsView' });
+          break;
+    //case 'favorites':
+    case 'notifications':
       uni.showToast({ title: '功能开发中', icon: 'none' });
+      break;
+      
+    default:
+      break;
   }
 };
 
@@ -159,13 +198,8 @@ const handleLogout = () => {
       content: '确认退出当前登录吗？',
       success: (res) => {
           if (res.confirm) {
-              // 调用 store 的 logout 清理数据
               authStore.logout();
-              
-              // 强制跳转回登录页 (关闭所有页面)
-              uni.reLaunch({
-                  url: '/pages/index/LoginView'
-              });
+              uni.reLaunch({ url: '/pages/index/LoginView' });
           }
       }
   });

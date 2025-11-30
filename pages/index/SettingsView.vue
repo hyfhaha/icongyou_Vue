@@ -12,12 +12,12 @@
 
 		<scroll-view scroll-y class="page-scroll">
 			<view class="section-card">
-				<text class="section-title">个性化偏好</text>
+				<text class="section-title">显示与隐私</text>
 				
 				<view class="setting-item">
 					<view>
 						<text class="setting-label">显示学期标签</text>
-						<text class="setting-desc">在课程列表页显示学期分类标签</text>
+						<text class="setting-desc">在课程列表中显示学期分类</text>
 					</view>
 					<switch 
 						:checked="preferences.showTags" 
@@ -29,54 +29,36 @@
 				
 				<view class="setting-item">
 					<view>
-						<text class="setting-label">学习提醒</text>
-						<text class="setting-desc">距离任务截止前 24 小时推送提醒</text>
+						<text class="setting-label">隐私保护模式</text>
+						<text class="setting-desc">隐藏所有分数显示，防止窥屏</text>
 					</view>
 					<switch 
-						:checked="preferences.reminder" 
+						:checked="preferences.privacyMode" 
 						color="#4C8AF2" 
-						@change="handleToggle('reminder')"
-						style="transform:scale(0.8)"
-					></switch>
-				</view>
-				
-				<view class="setting-item">
-					<view>
-						<text class="setting-label">夜间主题</text>
-						<text class="setting-desc">低亮度配色，适合夜间学习</text>
-					</view>
-					<switch 
-						:checked="preferences.darkMode" 
-						color="#4C8AF2" 
-						@change="handleToggle('darkMode')"
+						@change="handleToggle('privacyMode')"
 						style="transform:scale(0.8)"
 					></switch>
 				</view>
 			</view>
 
 			<view class="section-card">
-				<text class="section-title">账号与安全</text>
+				<text class="section-title">通用</text>
 				<view class="setting-list">
-					<view class="setting-row" @click="onNavigate('profile')">
-						<text>个人资料</text>
+                    <view class="setting-row" @click="handleClearCache">
+						<view>
+							<text class="setting-label-row">清除缓存</text>
+							<text class="setting-desc">释放本地存储空间 ({{ cacheSize }})</text>
+						</view>
 						<uni-icons type="right" size="16" color="#AAAAAA"></uni-icons>
 					</view>
-					<view class="setting-row" @click="onNavigate('password')">
-						<text>修改密码</text>
-						<uni-icons type="right" size="16" color="#AAAAAA"></uni-icons>
+                    
+                    <view class="setting-row" @click="checkVersion">
+						<text class="setting-label-row">检查更新</text>
+						<view class="version-info">
+							<text class="version-text">v1.0.2</text>
+							<uni-icons type="right" size="16" color="#AAAAAA"></uni-icons>
+						</view>
 					</view>
-					<view class="setting-row">
-						<text>隐私与授权</text>
-						<uni-icons type="right" size="16" color="#AAAAAA"></uni-icons>
-					</view>
-				</view>
-			</view>
-
-			<view class="section-card">
-				<text class="section-title">数据管理</text>
-				<view class="export-card">
-					<text class="export-desc">导出本学期课程成绩与任务佐证材料 (Excel/PDF)。</text>
-					<button class="button-primary" @click="exportData">导出数据</button>
 				</view>
 			</view>
 
@@ -88,51 +70,73 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
-// 引入两个 Store
 import { useSettingsStore } from '@/store/settingsStore';
 import { useAuthStore } from '@/store/authStore';
 
 const settingsStore = useSettingsStore();
 const authStore = useAuthStore();
-
 const { preferences } = storeToRefs(settingsStore);
+const cacheSize = ref('0KB');
 
-// 初始化加载配置
 onMounted(() => {
 	settingsStore.loadSettings();
+    calculateCache();
 });
 
-const goBack = () => {
-  uni.navigateBack();
-};
+const goBack = () => uni.navigateBack();
 
-// 切换开关
 const handleToggle = (key) => {
   settingsStore.toggleSetting(key);
 };
 
-const onNavigate = (type) => {
-  if (type === 'profile') {
-    uni.switchTab({ url: '/pages/index/ProfileView' });
-  } else {
-    uni.showToast({ title: '功能开发中', icon: 'none' });
-  }
+// 计算缓存大小 (模拟)
+const calculateCache = () => {
+    try {
+        const res = uni.getStorageInfoSync();
+        // 简单换算一下 KB
+        cacheSize.value = (res.currentSize > 1024) 
+            ? (res.currentSize / 1024).toFixed(1) + 'MB' 
+            : res.currentSize + 'KB';
+    } catch (e) {
+        cacheSize.value = '0KB';
+    }
 };
 
-const exportData = () => {
-  uni.showLoading({ title: '正在生成...' });
-  setTimeout(() => {
-    uni.hideLoading();
-    uni.showToast({
-      title: '导出成功，已发送至邮箱',
-      icon: 'success'
+// 真实功能：清除缓存
+const handleClearCache = () => {
+    uni.showModal({
+        title: '清除缓存',
+        content: '确定要清除本地缓存吗？这不会删除您的账号数据。',
+        success: (res) => {
+            if (res.confirm) {
+                // 保留 token 和设置，清除其他无关紧要的
+                const token = uni.getStorageSync('token');
+                const settings = uni.getStorageSync('app_settings');
+                
+                uni.clearStorageSync();
+                
+                // 恢复关键数据
+                if(token) uni.setStorageSync('token', token);
+                if(settings) uni.setStorageSync('app_settings', settings);
+                
+                uni.showToast({ title: '清理完成', icon: 'success' });
+                calculateCache(); // 刷新显示
+            }
+        }
     });
-  }, 1500);
 };
 
-// 退出登录 (复用 authStore 的逻辑)
+// 模拟功能：检查更新
+const checkVersion = () => {
+    uni.showLoading({ title: '检查中...' });
+    setTimeout(() => {
+        uni.hideLoading();
+        uni.showToast({ title: '当前已是最新版本', icon: 'none' });
+    }, 1000);
+};
+
 const handleLogout = () => {
   uni.showModal({
     title: '提示',
