@@ -13,9 +13,9 @@
 			
 			<view class="legend-bar">
 				<view class="legend-item"><view class="dot completed"></view><text>完成</text></view>
-				<view class="legend-item"><view class="dot progress"></view><text>进行</text></view>
-				<view class="legend-item"><view class="dot upcoming"></view><text>未开</text></view>
-			</view>
+				    <view class="legend-item"><view class="dot submitted"></view><text>未评</text></view> <view class="legend-item"><view class="dot progress"></view><text>进行</text></view>
+				    <view class="legend-item"><view class="dot upcoming"></view><text>未开</text></view>
+				    <view class="legend-item"><view class="dot overdue"></view><text>逾期</text></view></view>
 		</view>
 
 		<view class="matrix-container">
@@ -73,10 +73,12 @@
 									v-for="task in getTasksInCell(cIndex, rIndex)" 
 									:key="task.id"
 									class="mini-node"
-									:class="task.status"
+									:class="[task.status, { 'is-optional': !task.required }]" 
 									@click="openTaskPopup(task)"
 								>
 									<text class="node-text">{{ task.id }}</text>
+									
+									<text v-if="!task.required" class="optional-tag">选</text>
 								</view>
 							</view>
 						</view>
@@ -155,11 +157,15 @@ const getTasksInCell = (x, y) => {
 };
 
 const getStatusText = (status) => {
-	const map = { 'completed': '已完成', 'submitted': '已提交', 'in-progress': '进行中', 'upcoming': '未开始' };
+	const map = { 'completed': '已完成', 'submitted': '未点评', 'in-progress': '进行中', 'upcoming': '未开始' ,'overdue': '已逾期'};
 	return map[status] || status;
 };
 
-const openTaskPopup = (task) => selectedTask.value = task;
+const openTaskPopup = (task) => {
+    console.log('当前任务数据:', task); // <--- 看这里
+    console.log('required字段:', task.required); 
+    selectedTask.value = task;
+};
 const closePopup = () => selectedTask.value = null;
 
 const enterDetail = () => {
@@ -308,8 +314,10 @@ $grid-line: #E5E7EB;
 .legend-item { display: flex; align-items: center; gap: 6rpx; }
 .dot { width: 12rpx; height: 12rpx; border-radius: 2rpx; }
 .dot.completed { background: #2ECC71; }
+.dot.submitted { background: #F39C12; } 
 .dot.progress { background: #4C8AF2; }
 .dot.upcoming { background: #BDC3C7; }
+.dot.overdue { background: #E74C3C; }   /* [新增] 红色 */
 
 .matrix-container {
 	flex: 1;
@@ -375,8 +383,12 @@ $grid-line: #E5E7EB;
 
 /* 内容行 */
 .body-row { 
-    border-bottom: 1rpx solid $line-color;
-    min-height: 240rpx; 
+border-bottom: 1rpx solid $line-color;
+    /* [修改] 改为 auto，让高度随任务数量自适应 */
+    height: auto; 
+    /* [修改] 给一个最小高度即可（大约一个卡片加padding的高度），避免空行太扁 */
+    min-height: 120rpx; 
+    display: flex; /* 确保 stretch 生效 */ 
 }
 .release-cell {
 	background-color: #FFFFFF;
@@ -392,34 +404,84 @@ $grid-line: #E5E7EB;
 
 /* [关键] 任务节点容器：垂直居中 */
 .task-cell {
-	align-items: center; /* 垂直居中 */
-	padding-top: 0;
+	flex: 1;
+	    min-width: 220rpx;
+	    /* [修改] 上下留少许空隙，左右空隙极小，让卡片看起来撑满 */
+	    padding: 12rpx 6rpx; 
+	    box-sizing: border-box;
+	    flex-shrink: 0;
+	    border-right: 1rpx solid $grid-line;
+	    border-bottom: 1rpx solid $grid-line;
+	    display: flex;
+	    justify-content: center;
+	    /* [关键] 保持顶部对齐，防止不同堆叠数量导致错位 */
+	    align-items: flex-start;
 }
 
 .task-stack {
-	display: flex;
-	flex-direction: column;
-	gap: 12rpx;
-	width: 100%;
-	align-items: center;
-    justify-content: center; /* 堆叠内容居中 */
+display: flex;
+    flex-direction: column;
+    /* [修改] 间距稍微调小一点，显得更紧凑 */
+    gap: 8rpx; 
+    /* [关键] 强制占满单元格宽度 */
+    width: 100%; 
+    align-items: center;
+    justify-content: flex-start;
 }
 
 /* [关键] 正方形图标 */
 .mini-node {
-	width: 90rpx; 
-	height: 90rpx;
-	border-radius: 16rpx;
-	display: flex; align-items: center; justify-content: center;
-	font-size: 28rpx;
-	font-weight: bold;
-	color: white;
-	transition: all 0.3s ease;
-    box-shadow: 0 4rpx 10rpx rgba(0,0,0,0.1);
+/* [修改] 宽度占满父容器 */
+	position: relative;
+    width: 100%; 
+    /* [修改] 高度设为 72-80rpx，配合宽宽度形成扁长方形 */
+    height: 76rpx; 
+    border-radius: 12rpx;
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    font-size: 26rpx; /* 字体稍微调小一点点适配 */
+    font-weight: bold;
+    color: white;
+    transition: all 0.3s ease;
+    box-shadow: 0 4rpx 8rpx rgba(0,0,0,0.15); /* 加深一点阴影增加质感 */
+}
+/* [新增] 选做任务的特殊样式 */
+.mini-node.is-optional {
+    opacity: 0.85; /*稍微透明一点，显示出区别*/
+    border: 2rpx dashed rgba(255,255,255,0.6); /* 增加虚线边框 */
+    /* 如果背景色太深，虚线可能看不清，可以根据实际情况调整透明度 */
 }
 
+/* [新增] 角标样式 */
+.optional-tag {
+    position: absolute;
+    right: 4rpx; /* 距离右边的距离 */
+    top: 4rpx;   /* 距离顶部的距离 */
+    font-size: 16rpx; /* 字体非常小 */
+    line-height: 1;
+    color: rgba(255,255,255,0.9);
+    background-color: rgba(0,0,0,0.2); /* 半透明黑底，增加对比度 */
+    padding: 2rpx 4rpx;
+    border-radius: 4rpx;
+    font-weight: normal;
+}
 /* --- 紧凑模式 (Compact Mode) --- */
 .mode-compact {
+	.optional-tag {
+	        font-size: 12rpx;          /* 字体极小 */
+	        padding: 0 2rpx;           /* 减少内边距 */
+	        right: 2rpx;
+	        top: 2rpx;
+	        transform: scale(0.8);     /* 整体再缩放一下 */
+	        transform-origin: top right; /*以此为基点缩放*/
+	        opacity: 0.9;
+	    }
+	    
+	    /* 让卡片文字稍微左移，避开角标 */
+	    .mini-node .node-text {
+	        padding-right: 10rpx; 
+	    }
 	.matrix-cell {
 		min-width: 80rpx; 
 		padding: 10rpx 4rpx;
@@ -430,21 +492,23 @@ $grid-line: #E5E7EB;
 		width: 90rpx;
 	}
     .body-row {
-        min-height: 160rpx;
+        min-height: 120rpx;
     }
     .release-cell {
         font-size: 20rpx;
     }
 
-	.mini-node {
-		width: 40rpx; 
-		height: 40rpx;
-		border-radius: 6rpx;
-		font-size: 16rpx;
+.mini-node {
+        /* 紧凑模式下还是保持小方块，或者也改成 100% */
+        width: 85%; 
+        height: 50rpx; /* 高度压扁 */
+        border-radius: 6rpx;
+        font-size: 16rpx;
         box-shadow: none;
-	}
-    .task-stack {
-        gap: 6rpx;
+    }
+    .task-cell {
+        min-width: 80rpx;
+        padding: 8rpx 2rpx; /* 紧凑模式边距更小 */
     }
 
 	.epic-cell {
@@ -506,6 +570,7 @@ $grid-line: #E5E7EB;
 .mini-node.submitted { background: #4C8AF2; }
 .mini-node.in-progress { background: #4C8AF2; }
 .mini-node.upcoming { background: #E0E0E0; color: #AAA; }
+.mini-node.overdue { background: #E74C3C; }
 
 /* 弹窗 */
 .task-overlay {
@@ -531,7 +596,9 @@ $grid-line: #E5E7EB;
 .detail-label { width: 100rpx; color: $text-sub; flex-shrink: 0; }
 .detail-value { flex: 1; color: $text-main; line-height: 1.4; }
 .status-text.completed { color: #2ECC71; font-weight: bold; }
+.status-text.submitted { color: #F39C12; font-weight: bold; }
 .status-text.in-progress { color: #4C8AF2; font-weight: bold; }
+.status-text.overdue { color: #E74C3C; font-weight: bold; }
 .detail-actions { margin-top: 36rpx; display: flex; flex-direction: column; align-items: stretch; gap: 16rpx; }
 .button-primary {
 	height: 80rpx; border-radius: 12rpx;

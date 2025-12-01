@@ -70,6 +70,8 @@ const mapTaskNode = (task) => ({
   deadline: task.end_time || task.deadline || '',
   storyType: task.story_type ?? task.storyType ?? 1,
   status: deriveTaskStatus(task),
+  
+  required: task.required !== 0,
   x: (task.position_x ?? 1) - 1,
   y: (task.position_y ?? 1) - 1,
   goalId: task.goal_id || task.goalId || null,

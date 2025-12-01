@@ -1,8 +1,16 @@
 <template>
   <view class="achievements-page">
     <view class="header-area">
-      <text class="page-title">我的成就</text>
-      <text class="page-subtitle">记录你的每一次进步</text>
+      <view class="nav-bar">
+        <view class="icon-button" @click="goBack">
+          <uni-icons type="left" size="24" color="#FFFFFF"></uni-icons>
+        </view>
+      </view>
+      
+      <view class="header-text-content">
+        <text class="page-title">我的成就</text>
+        <text class="page-subtitle">记录你的每一次进步</text>
+      </view>
     </view>
 
     <scroll-view scroll-y class="list-container">
@@ -23,7 +31,9 @@
         <view class="content-box">
           <view class="title-row">
             <text class="item-title">{{ item.title }}</text>
-            <text class="status-tag" v-if="item.isUnlocked">已达成</text>
+            <view class="status-tag" v-if="item.isUnlocked">
+              <text>已达成</text>
+            </view>
           </view>
           <text class="item-desc">{{ item.desc }}</text>
           
@@ -38,6 +48,8 @@
           </view>
         </view>
       </view>
+      
+      <view style="height: 40rpx;"></view>
     </scroll-view>
   </view>
 </template>
@@ -48,7 +60,11 @@ import { useAuthStore } from '@/store/authStore';
 
 const authStore = useAuthStore();
 
-// 定义成就规则数据
+// [新增] 返回上一页
+const goBack = () => {
+  uni.navigateBack();
+};
+
 const achievementList = computed(() => {
   const stats = authStore.userStats;
   
@@ -74,7 +90,6 @@ const achievementList = computed(() => {
   ];
 
   return rules.map(rule => {
-    // 限制进度不超过 100%
     let percent = (rule.current / rule.target) * 100;
     if (percent > 100) percent = 100;
     
@@ -89,7 +104,7 @@ const achievementList = computed(() => {
 
 <style lang="scss" scoped>
 .achievements-page {
-  min-height: 100vh;
+  height: 100vh;
   background-color: #F4F7FA;
   display: flex;
   flex-direction: column;
@@ -97,25 +112,55 @@ const achievementList = computed(() => {
 
 .header-area {
   background: linear-gradient(135deg, #F39C12, #F1C40F);
-  padding: 60rpx 40rpx 80rpx 40rpx;
+  padding: 0 40rpx 80rpx 40rpx; /* 底部留白给卡片上浮 */
   color: #fff;
-  
-  .page-title {
-    font-size: 40rpx;
-    font-weight: bold;
-    display: block;
-    margin-bottom: 10rpx;
+  /* 适配刘海屏顶部安全距离，或者简单的给一个 paddingTop */
+  padding-top: var(--status-bar-height); 
+}
+
+/* [新增] 导航栏样式 */
+.nav-bar {
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  margin-bottom: 20rpx;
+  /* 负 margin 抵消父级 padding，让返回键靠左 */
+  margin-left: -20rpx; 
+}
+
+.icon-button {
+  width: 80rpx;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  &:active {
+    background: rgba(255,255,255,0.2);
   }
-  .page-subtitle {
-    font-size: 26rpx;
-    opacity: 0.9;
-  }
+}
+
+.header-text-content {
+  padding-bottom: 20rpx;
+}
+
+.page-title {
+  font-size: 40rpx;
+  font-weight: bold;
+  display: block;
+  margin-bottom: 10rpx;
+}
+.page-subtitle {
+  font-size: 26rpx;
+  opacity: 0.9;
 }
 
 .list-container {
   flex: 1;
+  height: 0; /* 配合 flex:1 实现滚动 */
   padding: 0 30rpx;
   margin-top: -40rpx; // 上移盖住 header
+  box-sizing: border-box; /* 确保 padding 不会撑大宽度 */
 }
 
 .achievement-card {
@@ -128,7 +173,11 @@ const achievementList = computed(() => {
   box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05);
   transition: all 0.3s;
   
-  // 未解锁状态变灰
+  /* 防止父级宽度被撑开 */
+  box-sizing: border-box;
+  width: 100%;
+  
+  // 未解锁状态
   filter: grayscale(100%);
   opacity: 0.8;
   
@@ -141,15 +190,20 @@ const achievementList = computed(() => {
 }
 
 .icon-box {
-  width: 100rpx;
+  width: 90rpx; /* 固定宽度 */
+  flex-shrink: 0; /* 禁止压缩 */
   display: flex;
   justify-content: center;
-  padding-top: 10rpx;
+  padding-top: 6rpx;
 }
 
+/* [关键修改] 内容区域 */
 .content-box {
   flex: 1;
   margin-left: 20rpx;
+  
+  /* 核心修复：允许 flex 子项缩小到 0，防止文字撑开导致溢出屏幕 */
+  min-width: 0; 
 }
 
 .title-row {
@@ -157,13 +211,21 @@ const achievementList = computed(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8rpx;
+  gap: 16rpx; /* 标题和标签之间的间距 */
   
   .item-title {
     font-size: 32rpx;
     font-weight: bold;
     color: #333;
+    
+    /* 标题过长省略 */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
+  
   .status-tag {
+    flex-shrink: 0; /* 标签不许压缩 */
     font-size: 20rpx;
     color: #F39C12;
     border: 1px solid #F39C12;
@@ -177,6 +239,13 @@ const achievementList = computed(() => {
   color: #888;
   margin-bottom: 20rpx;
   display: block;
+  
+  /* 描述多行省略 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .progress-wrapper {
@@ -203,6 +272,7 @@ const achievementList = computed(() => {
     color: #999;
     width: 80rpx;
     text-align: right;
+    flex-shrink: 0;
   }
 }
 </style>
