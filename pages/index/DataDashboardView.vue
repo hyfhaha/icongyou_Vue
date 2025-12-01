@@ -106,8 +106,8 @@
 							<view class="info-content">
 								<text class="info-label">当前课程</text>
 								<text class="info-val">{{ currentCourse.courseName }}</text>
-							</view>
-						</view>
+					</view>
+					</view>
 					</view>
 				</view>
 
@@ -121,7 +121,7 @@
 						<view v-for="dim in abilityDimensions" :key="dim.id" class="dimension-item">
 							<view class="dim-header">
 								<view class="dim-name-row">
-									<text class="dim-name">{{ dim.label }}</text>
+								<text class="dim-name">{{ dim.label }}</text>
 									<view v-if="dim.levelLabel" class="level-badge" :style="{ 
 										background: dim.color + '20', 
 										color: dim.color,
@@ -131,7 +131,7 @@
 									</view>
 								</view>
 								<view class="dim-value-wrapper">
-									<text class="dim-val">{{ dim.value }}%</text>
+								<text class="dim-val">{{ dim.value }}%</text>
 									<view class="dim-badge" :style="{ background: dim.color + '20', color: dim.color }">
 										<text v-if="dim.value >= dim.threshold">合格</text>
 										<text v-else>待提升</text>
@@ -167,18 +167,18 @@
 				<!-- 团队数据 -->
 				<template v-else>
 					<!-- 团队概览卡片 -->
-					<view class="team-header-card">
-						<view class="team-top">
+				<view class="team-header-card">
+					<view class="team-top">
 							<view class="team-info-left">
 								<text class="team-name">{{ myTeam.groupName || '未命名团队' }}</text>
 								<text class="course-name" v-if="currentCourse.courseName">{{ currentCourse.courseName }}</text>
 							</view>
-							<view class="team-score-badge">
+						<view class="team-score-badge">
 								<text class="score-number">{{ myTeam.totalScore || 0 }}</text>
 								<text class="score-text">总分</text>
-							</view>
 						</view>
-						<view class="team-stats-row">
+					</view>
+					<view class="team-stats-row">
 							<view class="t-stat">
 								<text class="ts-val">{{ teamMembers.length }}</text>
 								<text class="ts-lbl">成员</text>
@@ -195,24 +195,24 @@
 								<text class="ts-val">{{ teamStats.completionRate }}%</text>
 								<text class="ts-lbl">完成率</text>
 							</view>
-						</view>
 					</view>
+				</view>
 
 					<!-- 团队成员与贡献 -->
-					<view class="card-box">
-						<view class="card-title-row">
-							<uni-icons type="staff-filled" size="20" color="#6C5BFF"></uni-icons>
-							<text class="card-title">团队成员与贡献</text>
+				<view class="card-box">
+					<view class="card-title-row">
+						<uni-icons type="staff-filled" size="20" color="#6C5BFF"></uni-icons>
+						<text class="card-title">团队成员与贡献</text>
 							<text class="card-subtitle">{{ teamMembers.length }} 人</text>
-						</view>
+					</view>
 						<view class="member-list" v-if="teamMembers.length > 0">
 							<view v-for="(m, index) in sortedMembers" :key="m.id" class="member-item">
 								<view class="member-rank">{{ index + 1 }}</view>
-								<view class="m-avatar" :class="{ leader: m.isLeader }">
+							<view class="m-avatar" :class="{ leader: m.isLeader }">
 									<text>{{ (m.name || '').charAt(0) || '?' }}</text>
 									<view v-if="m.isLeader" class="leader-crown">👑</view>
-								</view>
-								<view class="m-info">
+							</view>
+							<view class="m-info">
 									<view class="m-name-row">
 										<text class="m-name">{{ m.name || '未知' }}</text>
 										<text v-if="m.isLeader" class="leader-tag">队长</text>
@@ -222,18 +222,18 @@
 									<view class="m-score" v-if="m.score !== undefined">
 										<text class="score-text">个人得分: {{ m.score }}</text>
 									</view>
-								</view>
-								<view class="m-contribution">
+							</view>
+							<view class="m-contribution">
 									<view class="contribution-circle" :style="{ background: getContributionColor(m.contribution) }">
 										<text class="c-val">{{ m.contribution || 0 }}%</text>
 									</view>
-									<text class="c-lbl">贡献度</text>
-								</view>
+								<text class="c-lbl">贡献度</text>
 							</view>
 						</view>
+					</view>
 						<view v-else class="empty-state-small">
 							<text class="empty-text-small">暂无成员数据</text>
-						</view>
+				</view>
 					</view>
 
 					<!-- 团队统计数据 -->
@@ -321,6 +321,23 @@ const { personalData, abilityDimensions, myTeam, teamMembers, currentCourseId, t
  *    - 如果 currentCourseId 为空：尝试从课程列表获取第一个课程并初始化
  *    - 如果课程列表为空：提示用户先进入课程
  */
+
+// 根据页面参数设置默认 Tab（personal / team）
+const applyTabFromParams = () => {
+  try {
+    const pages = getCurrentPages && getCurrentPages();
+    if (pages && pages.length > 0) {
+      const currentPage = pages[pages.length - 1];
+      const options = currentPage.options || {};
+      const tab = options.tab;
+      if (tab === 'team' || tab === 'personal') {
+        activeTab.value = tab;
+      }
+    }
+  } catch (e) {
+    console.warn('读取 tab 参数失败', e);
+  }
+};
 
 // 任务统计数据
 const taskStats = computed(() => {
@@ -519,6 +536,8 @@ const initCourseIfNeeded = async () => {
 };
 
 onMounted(async () => {
+    // 先根据路由参数设置默认 tab
+    applyTabFromParams();
     // 确保已登录，否则显示默认值
     if(authStore.userInfo.nickname === '未登录') {
         authStore.login();
@@ -543,6 +562,8 @@ const handleTabChange = (tab) => {
 };
 
 onShow(async () => {
+  // 每次显示页面时，根据路由参数同步一次 tab（防止返回后状态不一致）
+  applyTabFromParams();
   // 每次显示页面时，重新初始化课程上下文（防止刷新后丢失）
   const success = await initCourseIfNeeded();
   if (!success) {
@@ -551,7 +572,7 @@ onShow(async () => {
   
   if (activeTab.value === 'team') {
     loadTeamData();
-  }
+    }
 });
 
 const goBack = () => uni.navigateBack();

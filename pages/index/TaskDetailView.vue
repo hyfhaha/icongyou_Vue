@@ -199,6 +199,7 @@
 										v-for="(fileName, fileIndex) in getFileList(submission.file_name)" 
 										:key="fileIndex"
 										class="file-item-small"
+										@click="handleHistoryFileClick(submission, fileIndex)"
 									>
 										<uni-icons type="paperclip" size="16" color="#4C8AF2"></uni-icons>
 										<text class="file-name-small">{{ fileName }}</text>
@@ -505,6 +506,26 @@ const getFileList = (fileNames) => {
 	return fileNames.split('|').filter(name => name.trim());
 };
 
+// 根据索引获取对应的文件 URL（多个 URL 用 | 分隔）
+const getFileUrlByIndex = (fileUrls, index) => {
+	if (!fileUrls) return '';
+	const urls = fileUrls.split('|').map(u => u.trim()).filter(Boolean);
+	return urls[index] || urls[0] || '';
+};
+
+// 给下载链接追加时间戳，避免 304 缓存命中
+const buildDownloadUrl = (url) => {
+	if (!url) return '';
+	const sep = url.includes('?') ? '&' : '?';
+	return `${url}${sep}_ts=${Date.now()}`;
+};
+
+// 清洗文件名，避免非法字符
+const sanitizeFileName = (fileName) => {
+	if (!fileName) return '文件';
+	return fileName.replace(/[\\/:*?"<>|]/g, '_');
+};
+
 // 获取文件大小（从URL推断，或显示默认值）
 const getFileSize = (fileUrls, index) => {
 	if (!fileUrls) return '';
@@ -512,6 +533,142 @@ const getFileSize = (fileUrls, index) => {
 	// 这里无法直接获取文件大小，可以尝试从文件名推断或显示默认值
 	// 实际项目中可以通过HEAD请求获取文件大小，这里简化处理
 	return '--';
+};
+
+// H5 环境下（浏览器）触发原生下载，允许用户自行选择保存位置
+const downloadInBrowser = (fileUrl, fileName) => {
+	/* #ifdef H5 */
+	try {
+		console.log('[历史提交][H5] 触发浏览器下载', { fileUrl, fileName });
+		const link = document.createElement('a');
+		link.href = fileUrl;
+		link.setAttribute('download', fileName || '文件');
+		link.setAttribute('target', '_blank');
+		link.style.display = 'none';
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+		uni.showToast({ title: '开始下载', icon: 'none' });
+	} catch (err) {
+		console.error('H5 下载触发失败', err);
+		uni.showToast({ title: '浏览器下载失败', icon: 'none' });
+	}
+	/* #endif */
+};
+
+// App 端下载并保存到 @downloads 目录
+const downloadToAppDownloads = (fileUrl, fileName) => {
+	/* #ifdef APP-PLUS */
+	if (typeof plus === 'undefined' || !fileUrl) {
+		uni.showToast({ title: '当前环境不支持保存', icon: 'none' });
+		return;
+	}
+	try {
+		uni.showLoading({ title: '正在下载...' });
+		const downloadTask = plus.downloader.createDownload(
+			fileUrl,
+			{ filename: `@downloads/${fileName}` },
+			(download, status) => {
+				uni.hideLoading();
+				if (status === 200) {
+					// 解析本地路径给用户提示
+					plus.io.resolveLocalFileSystemURL(
+						download.filename,
+						(entry) => {
+							uni.showToast({ title: `已保存: ${entry.name}`, icon: 'none' });
+						},
+						() => {
+							uni.showToast({ title: '已保存到下载文件夹', icon: 'none' });
+						}
+					);
+				} else {
+					console.error('下载失败，状态码:', status);
+					uni.showToast({ title: '下载失败', icon: 'none' });
+				}
+			}
+		);
+		downloadTask.start();
+	} catch (err) {
+		uni.hideLoading();
+		console.error('App 保存失败', err);
+		uni.showToast({ title: '保存失败', icon: 'none' });
+	}
+	/* #endif */
+};
+
+// 点击历史提交中的文件，下载并打开，保持原始后缀类型
+const handleHistoryFileClick = (submission, fileIndex) => {
+	if (!submission) {
+		console.warn('[历史提交] submission 不存在，无法下载');
+		return;
+	}
+	const fileNameList = getFileList(submission.file_name);
+	const rawFileName = fileNameList[fileIndex] || fileNameList[0] || '文件';
+	const fileName = sanitizeFileName(rawFileName);
+	const originUrl = getFileUrlByIndex(submission.file_url, fileIndex);
+	const fileUrl = buildDownloadUrl(originUrl);
+	
+	if (!fileUrl) {
+		uni.showToast({ title: '文件地址不存在', icon: 'none' });
+		return;
+	}
+	
+	console.log('[历史提交] 开始下载', {
+		rawFileName,
+		fileName,
+		originUrl,
+		fileUrl,
+		platform: process.env.UNI_PLATFORM
+	});
+	
+	/* #ifdef APP-PLUS */
+	downloadToAppDownloads(fileUrl, fileName);
+	return;
+	/* #endif */
+	
+	// 如果是 H5，则直接触发浏览器下载，让用户自己选择保存位置
+	/* #ifdef H5 */
+	console.log('[历史提交] 当前为 H5，从浏览器触发下载');
+	downloadInBrowser(fileUrl, fileName);
+	return;
+	/* #endif */
+	
+	uni.showLoading({ title: '正在下载...' });
+	uni.downloadFile({
+		url: fileUrl,
+		success: (res) => {
+			if (res.statusCode === 200) {
+				console.log('[历史提交][downloadFile] 下载成功，准备 openDocument', res.tempFilePath);
+				// 从原始文件名中提取后缀名，传给 openDocument，保证类型一致
+				const extMatch = rawFileName.match(/\.([^.]+)$/);
+				const fileType = extMatch ? extMatch[1].toLowerCase() : '';
+				
+				uni.openDocument({
+					filePath: res.tempFilePath,
+					fileType,
+					showMenu: true,
+					success: () => {
+						console.log('[历史提交][openDocument] 打开成功');
+						uni.hideLoading();
+					},
+					fail: () => {
+						console.error('[历史提交][openDocument] 打开失败');
+						uni.hideLoading();
+						uni.showToast({ title: '打开失败，请稍后重试', icon: 'none' });
+					}
+				});
+			} else {
+				console.error('[历史提交][downloadFile] 下载失败', res.statusCode);
+				uni.hideLoading();
+				uni.showToast({ title: '下载失败', icon: 'none' });
+			}
+		},
+		fail: () => {
+			console.error('[历史提交][downloadFile] 请求失败');
+			uni.hideLoading();
+			uni.showToast({ title: '下载失败', icon: 'none' });
+		}
+	});
 };
 
 // 格式化贡献度（0-1的小数转为百分比）

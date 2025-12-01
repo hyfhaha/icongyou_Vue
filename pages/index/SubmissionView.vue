@@ -280,9 +280,9 @@ const pieChartData = computed(() => {
   }
   
   return {
-    series: [{
+  series: [{
       data: series
-    }]
+  }]
   };
 });
 
@@ -298,7 +298,7 @@ const pieChartOpts = computed(() => {
       lineHeight: 25,
       itemGap: 10
     },
-    extra: {
+  extra: {
       pie: {
         activeOpacity: 0.5,
         activeRadius: 10,
@@ -307,8 +307,8 @@ const pieChartOpts = computed(() => {
         border: true,
         borderWidth: 3,
         borderColor: '#FFFFFF'
-      }
     }
+  }
   };
 });
 
@@ -374,7 +374,7 @@ const handleSubmit = async () => {
         const contributionData = {
           student_id: userId, // 用户ID（必需，用于后端匹配）
           studentId: member.studentId || userId, // 学号或用户ID（兼容字段）
-          // 后端需要的是0-1的小数，前端显示的是百分比整数
+        // 后端需要的是0-1的小数，前端显示的是百分比整数
           percent: (member.contribution || 0) / 100 
         };
         console.log('📤 发送贡献度数据:', {

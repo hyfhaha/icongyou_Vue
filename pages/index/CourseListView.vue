@@ -166,14 +166,23 @@ const getProgressColor = (progress) => {
 const filteredCourses = computed(() => {
   let res = courseList.value || [];
   
+  // 筛选：按课程类型
   if (activeFilter.value !== 0) {
-    res = res.filter(c => c.courseType === activeFilter.value);
+    res = res.filter(c => {
+      const courseType = c.courseType ?? 0;
+      return courseType === activeFilter.value;
+    });
   }
   
-  if (searchQuery.value) {
-    const q = searchQuery.value.toLowerCase();
-    res = res.filter(c => c.courseName.toLowerCase().includes(q));
+  // 搜索：按课程名称
+  if (searchQuery.value && searchQuery.value.trim()) {
+    const q = searchQuery.value.trim().toLowerCase();
+    res = res.filter(c => {
+      const courseName = (c.courseName || '').toLowerCase();
+      return courseName.includes(q);
+    });
   }
+  
   return res;
 });
 

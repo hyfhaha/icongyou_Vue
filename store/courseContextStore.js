@@ -81,10 +81,10 @@ const mapTaskNode = (task) => ({
 const mapCourseListItem = (course) => ({
   courseId: course.courseId || course.id || course.course_id,
   courseName: course.courseName || course.name || course.course_name || '未命名课程',
-  teacher: course.teacherName || course.teacher || '',
+  teacher: course.teacherName || course.teacher || course.teacher_names || '',
   cover: course.coverUrl || course.course_pic || '',
   progress: toPercent(course.progress ?? course.complete_percent),
-  courseType: course.courseType || 0,
+  courseType: course.courseType ?? course.course_type ?? 0, // 使用 ?? 确保 0 也是有效值
   semester: course.semester || course.semester_label || '',
   studentCount: course.studentCount ?? 0,
   taskCount: course.totalTasks ?? course.taskCount ?? course.total_tasks ?? 0

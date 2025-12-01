@@ -1,105 +1,257 @@
 <template>
 	<view class="course-home-page">
+		<!-- 顶部导航栏 -->
 		<view class="header-sticky">
 			<view class="header-content">
 				<view class="icon-button" @click="goBack">
 					<uni-icons type="left" size="24" color="#555555"></uni-icons>
 				</view>
 				<view class="header-text">
-					<text class="header-title">{{ currentCourse.courseName }}</text>
-					<text class="header-subtitle">{{ currentCourse.semester }} · {{ currentCourse.teacher }}</text>
+					<text class="header-title">{{ currentCourse.courseName || '课程首页' }}</text>
+					<text class="header-subtitle">{{ currentCourse.semester || '' }} · {{ currentCourse.teacher || '' }}</text>
 				</view>
-				<view class="icon-button"></view>
+				<view class="icon-button" @click="goDataDashboard">
+					<uni-icons type="pie-chart-filled" size="24" color="#4C8AF2"></uni-icons>
+				</view>
 			</view>
 		</view>
 
-		<scroll-view scroll-y="true" class="page-scroll">
-			<view class="card-box highlight-card">
-				<view class="card-title-row">
-					<uni-icons type="list" size="20" color="#2ECC71"></uni-icons>
-					<text class="card-title">当前任务进度</text>
-				</view>
-
-				<view class="completion-section">
-					<view class="completion-chart">
-						<text class="completion-rate">{{ taskStats.completionRate }}%</text>
-						<text class="completion-label">整体完成率</text>
+		<scroll-view scroll-y="true" class="page-scroll" @scrolltolower="onScrollToLower">
+      <!-- 进度概览卡片（点击进入数据看板 - 个人数据） -->
+      <view class="progress-card" @click="goPersonalDashboard">
+				<view class="progress-header">
+					<view class="progress-title-section">
+						<text class="progress-title">学习进度</text>
+						<text class="progress-subtitle">已完成 {{ taskStats.completedTasks }}/{{ taskStats.totalTasks }} 个任务</text>
 					</view>
-					<view class="completion-stats">
-						<view class="stat-row">
-							<text>已完成任务</text>
-							<text class="stat-num">{{ taskStats.completedTasks }}</text>
-						</view>
-						<view class="stat-row">
-							<text>待完成任务</text>
-							<text class="stat-num warning">{{ taskStats.totalTasks - taskStats.completedTasks }}</text>
-						</view>
-						<view class="stat-row">
-							<text>总任务数</text>
-							<text class="stat-num">{{ taskStats.totalTasks }}</text>
+					<view class="progress-circle-wrapper">
+						<view class="progress-circle" :style="{ background: `conic-gradient(from 0deg, ${getProgressColor(taskStats.completionRate)} 0%, ${getProgressColor(taskStats.completionRate)} ${taskStats.completionRate}%, #E5E7EB ${taskStats.completionRate}%, #E5E7EB 100%)` }">
+							<view class="progress-inner">
+								<text class="progress-percent">{{ taskStats.completionRate }}%</text>
+							</view>
 						</view>
 					</view>
 				</view>
-
-				<view class="action-buttons">
-					<button class="button-primary" @click="goTaskMap">
-						<uni-icons type="map-filled" size="20" color="#FFFFFF"></uni-icons>
-						<text>进入任务地图</text>
-					</button>
-					<button class="button-outline" @click="goDataDashboard">
-						<uni-icons type="pie-chart-filled" size="20" color="#4C8AF2"></uni-icons>
-						<text>查看数据页面</text>
-					</button>
+				<view class="progress-stats">
+					<view class="stat-item">
+						<view class="stat-icon completed">
+							<uni-icons type="checkmarkempty" size="18" color="#2ECC71"></uni-icons>
+						</view>
+						<view class="stat-content">
+							<text class="stat-value">{{ taskStats.completedTasks }}</text>
+							<text class="stat-label">已完成</text>
+						</view>
+					</view>
+					<view class="stat-item">
+						<view class="stat-icon pending">
+							<uni-icons type="clock" size="18" color="#F39C12"></uni-icons>
+						</view>
+						<view class="stat-content">
+							<text class="stat-value">{{ pendingTasksCount }}</text>
+							<text class="stat-label">进行中</text>
+						</view>
+					</view>
+					<view class="stat-item">
+						<view class="stat-icon overdue">
+							<uni-icons type="flag" size="18" color="#E74C3C"></uni-icons>
+						</view>
+						<view class="stat-content">
+							<text class="stat-value">{{ overdueTasksCount }}</text>
+							<text class="stat-label">已逾期</text>
+						</view>
+					</view>
 				</view>
 			</view>
 
-			<view class="card-box">
-				<text class="section-header">快捷访问</text>
-				<view class="quick-grid">
-					<view class="quick-item" @click="goExcellent">
-						<view class="quick-icon pink">
-							<uni-icons type="heart-filled" size="24" color="#FFFFFF"></uni-icons>
+      <!-- 任务地图入口 -->
+      <view class="entry-card" @click="goTaskMap">
+        <view class="entry-left">
+          <uni-icons type="map-filled" size="24" color="#4C8AF2"></uni-icons>
+          <text class="entry-title">进入任务地图</text>
+        </view>
+        <view class="entry-right">
+          <text class="entry-desc">查看本课程全部任务进度</text>
+          <uni-icons type="right" size="20" color="#999"></uni-icons>
+        </view>
+      </view>
+
+      <!-- 团队信息卡片（如果有团队，点击进入数据看板 - 团队数据） -->
+      <view v-if="myTeam.id" class="team-card" @click="goTeamDashboard">
+				<view class="team-header">
+					<view class="team-info">
+						<view class="team-icon-wrapper">
+							<uni-icons type="person-filled" size="28" color="#FFFFFF"></uni-icons>
 						</view>
-						<text>优秀作业</text>
+						<view class="team-details">
+							<text class="team-name">{{ myTeam.groupName || '未命名团队' }}</text>
+							<text class="team-meta">{{ teamMembers.length }} 名成员 · 总分 {{ myTeam.totalScore || 0 }}</text>
+						</view>
 					</view>
-					<view class="quick-item" @click="goAITutor">
-						<view class="quick-icon blue">
-							<uni-icons type="chatbubble-filled" size="24" color="#FFFFFF"></uni-icons>
+					<uni-icons type="right" size="20" color="#999"></uni-icons>
+				</view>
+			</view>
+
+      <!-- 近期任务列表（即使暂无任务也展示提示） -->
+      <view class="card-box">
+				<view class="section-header">
+					<view class="header-left">
+						<uni-icons type="flag-filled" size="20" color="#E74C3C"></uni-icons>
+            <text class="section-title">近期任务</text>
+					</view>
+					<text class="view-all" @click="goTaskMap">查看全部</text>
+				</view>
+				<view v-if="urgentTasks.length > 0" class="task-list">
+					<view 
+						v-for="task in urgentTasks.slice(0, 3)" 
+						:key="task.id"
+						class="task-item"
+						@click="handleTaskClick(task.id)"
+					>
+						<view class="task-item-left">
+							<view class="task-status-dot" :class="task.status"></view>
+							<view class="task-info">
+								<text class="task-name">{{ task.storyName }}</text>
+								<text class="task-meta">
+									{{ formatDeadline(task.deadline) }}
+									<text v-if="task.totalScore" class="task-score"> · {{ task.totalScore }}分</text>
+								</text>
+							</view>
 						</view>
-						<text>AI 答疑</text>
+						<view class="task-item-right">
+							<view class="task-status-badge" :class="task.status">
+								<text>{{ getStatusText(task.status) }}</text>
+							</view>
+						</view>
 					</view>
 				</view>
+        <view v-else class="recent-empty">
+          <text class="recent-empty-text">近期暂无任务</text>
+          <text class="recent-empty-hint">开始或提交任务后，将会出现在这里</text>
+        </view>
+			</view>
+
+			<!-- 空状态提示 -->
+			<view v-if="taskStats.totalTasks === 0" class="empty-state">
+				<uni-icons type="info" size="64" color="#BDC3C7"></uni-icons>
+				<text class="empty-text">暂无任务</text>
+				<text class="empty-hint">课程任务将在课程开始后发布</text>
 			</view>
 		</scroll-view>
 	</view>
 </template>
 
 <script setup>
-import { onMounted } from 'vue';
+import { computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useCourseContextStore } from '@/store/courseContextStore';
 
 const contextStore = useCourseContextStore();
-// 获取当前课程和任务统计数据
-const { currentCourse, taskStats } = storeToRefs(contextStore);
+const { currentCourse, taskStats, taskNodes, myTeam, teamMembers } = storeToRefs(contextStore);
 
-// onMounted 中通常不需要再 initCourseContext，因为在列表页点击时已经初始化了
-// 除非支持直接通过 URL 分享进入，可以加一个判断
+// 计算待完成任务
+const pendingTasksCount = computed(() => {
+	return taskNodes.value.filter(t => ['in-progress', 'upcoming'].includes(t.status)).length;
+});
+
+// 计算逾期任务
+const overdueTasksCount = computed(() => {
+	return taskNodes.value.filter(t => t.status === 'overdue').length;
+});
+
+// 获取近期任务（进行中 + 已提交，按截止时间排序）
+const urgentTasks = computed(() => {
+	const urgent = taskNodes.value.filter(t => 
+    ['in-progress', 'submitted'].includes(t.status)
+	);
+	// 按截止时间排序，有截止时间的优先
+	return urgent.sort((a, b) => {
+		if (!a.deadline && !b.deadline) return 0;
+		if (!a.deadline) return 1;
+		if (!b.deadline) return -1;
+		return new Date(a.deadline) - new Date(b.deadline);
+	});
+});
+
+// 获取进度颜色
+const getProgressColor = (rate) => {
+	if (rate >= 80) return '#2ECC71';
+	if (rate >= 50) return '#4C8AF2';
+	return '#F39C12';
+};
+
+// 格式化截止时间
+const formatDeadline = (deadline) => {
+	if (!deadline) return '无截止时间';
+	try {
+		const date = new Date(deadline);
+		const now = new Date();
+		const diff = date.getTime() - now.getTime();
+		const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+		
+		if (days < 0) return '已逾期';
+		if (days === 0) return '今天截止';
+		if (days === 1) return '明天截止';
+		if (days <= 7) return `${days}天后截止`;
+		
+		const month = date.getMonth() + 1;
+		const day = date.getDate();
+		return `${month}月${day}日`;
+	} catch (e) {
+		return '日期错误';
+	}
+};
+
+// 获取状态文本
+const getStatusText = (status) => {
+	const map = {
+		'completed': '已完成',
+		'submitted': '已提交',
+		'in-progress': '进行中',
+		'upcoming': '待开始',
+		'overdue': '已逾期'
+	};
+	return map[status] || '未知';
+};
+
+// 处理任务点击
+const handleTaskClick = (taskId) => {
+	contextStore.selectTask(taskId);
+	uni.navigateTo({ url: '/pages/index/TaskDetailView' });
+};
+
+// 滚动到底部
+const onScrollToLower = () => {
+	// 可以在这里加载更多数据
+};
+
 onMounted(() => {
-  // 如果 Store 里没有数据（比如刷新了），可以尝试用默认 ID 初始化
-  if (!currentCourse.value.courseId) {
-    contextStore.initCourseContext(1001);
-  }
+	if (!currentCourse.value.courseId) {
+		// 尝试从本地存储恢复课程ID
+		try {
+			const savedCourseId = uni.getStorageSync('currentCourseId');
+			if (savedCourseId) {
+				contextStore.initCourseContext(savedCourseId);
+			}
+		} catch (e) {
+			console.warn('获取本地课程ID失败', e);
+		}
+	}
 });
 
 const goBack = () => {
-  const pages = getCurrentPages();
-  if (pages.length > 1) uni.navigateBack();
-  else uni.switchTab({ url: '/pages/index/CourseListView' });
+	const pages = getCurrentPages();
+	if (pages.length > 1) uni.navigateBack();
+	else uni.switchTab({ url: '/pages/index/CourseListView' });
 };
 
 const goTaskMap = () => uni.navigateTo({ url: '/pages/index/TaskKanbanView' });
-const goDataDashboard = () => uni.navigateTo({ url: '/pages/index/DataDashboardView' });
+// 默认按钮（右上角）进入个人数据
+const goDataDashboard = () => uni.navigateTo({ url: '/pages/index/DataDashboardView?tab=personal' });
+// 进度卡片进入个人数据
+const goPersonalDashboard = () => uni.navigateTo({ url: '/pages/index/DataDashboardView?tab=personal' });
+// 小组卡片进入团队数据
+const goTeamDashboard = () => uni.navigateTo({ url: '/pages/index/DataDashboardView?tab=team' });
+const goTeam = () => uni.navigateTo({ url: '/pages/index/TeamView' });
 const goExcellent = () => uni.navigateTo({ url: '/pages/index/ExcellentWorksView' });
 const goAITutor = () => uni.navigateTo({ url: '/pages/index/AITutorView' });
 </script>
@@ -108,12 +260,15 @@ const goAITutor = () => uni.navigateTo({ url: '/pages/index/AITutorView' });
 $bg-color: #F4F7FA;
 $card-bg: #FFFFFF;
 $text-color: #333333;
+$text-light: #666666;
+$text-lighter: #999999;
 $theme-color: #4C8AF2;
 $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+$shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.1);
 
 .course-home-page {
 	height: 100vh;
-	background-color: $bg-color;
+	background: linear-gradient(180deg, #F8FAFC 0%, $bg-color 100%);
 	display: flex;
 	flex-direction: column;
 }
@@ -121,62 +276,424 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 .header-sticky {
 	position: sticky;
 	top: 0;
-	z-index: 20;
-	background: #FFFFFF;
-	box-shadow: $shadow;
-	padding: 20rpx;
+	z-index: 100;
+	background: rgba(255, 255, 255, 0.95);
+	backdrop-filter: blur(10px);
+	border-bottom: 1rpx solid #E5E7EB;
+	padding: 20rpx 30rpx;
 }
+
 .header-content {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	height: 88rpx;
 }
-.icon-button { width: 80rpx; height: 80rpx; display: flex; align-items: center; justify-content: center; }
-.header-text { flex: 1; padding: 0 16rpx; }
-.header-title { font-size: 32rpx; font-weight: bold; color: $text-color; }
-.header-subtitle { font-size: 24rpx; color: #888; }
 
-.page-scroll { flex: 1; height: 0; padding: 30rpx; box-sizing: border-box; }
+.icon-button {
+	width: 80rpx;
+	height: 80rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 16rpx;
+	transition: background 0.2s;
+	&:active {
+		background: #F3F4F6;
+	}
+}
 
+.header-text {
+	flex: 1;
+	padding: 0 20rpx;
+	display: flex;
+	flex-direction: column;
+	gap: 8rpx;
+}
+
+.header-title {
+	font-size: 34rpx;
+	font-weight: bold;
+	color: $text-color;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.header-subtitle {
+	font-size: 24rpx;
+	color: $text-lighter;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.page-scroll {
+	flex: 1;
+	height: 0;
+	padding: 30rpx;
+	box-sizing: border-box;
+}
+
+// 进度卡片
+.progress-card {
+	background: linear-gradient(135deg, #667EEA 0%, #764BA2 100%);
+	border-radius: 32rpx;
+	padding: 40rpx;
+	margin-bottom: 30rpx;
+	box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+	color: white;
+}
+
+.progress-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	margin-bottom: 40rpx;
+}
+
+.progress-title-section {
+	flex: 1;
+}
+
+.progress-title {
+	font-size: 36rpx;
+	font-weight: bold;
+	margin-bottom: 12rpx;
+	display: block;
+}
+
+.progress-subtitle {
+	font-size: 24rpx;
+	opacity: 0.9;
+	display: block;
+}
+
+.progress-circle-wrapper {
+	width: 160rpx;
+	height: 160rpx;
+}
+
+.progress-circle {
+	width: 100%;
+	height: 100%;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	position: relative;
+}
+
+.progress-inner {
+	width: 120rpx;
+	height: 120rpx;
+	background: rgba(255, 255, 255, 0.2);
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	backdrop-filter: blur(10px);
+}
+
+.progress-percent {
+	font-size: 40rpx;
+	font-weight: bold;
+	color: white;
+}
+
+.progress-stats {
+	display: flex;
+	gap: 30rpx;
+}
+
+.stat-item {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	gap: 16rpx;
+	background: rgba(255, 255, 255, 0.15);
+	border-radius: 16rpx;
+	padding: 20rpx;
+	backdrop-filter: blur(10px);
+}
+
+.stat-icon {
+	width: 56rpx;
+	height: 56rpx;
+	border-radius: 12rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(255, 255, 255, 0.2);
+	&.completed { background: rgba(46, 204, 113, 0.3); }
+	&.pending { background: rgba(243, 156, 18, 0.3); }
+	&.overdue { background: rgba(231, 76, 60, 0.3); }
+}
+
+.stat-content {
+	display: flex;
+	flex-direction: column;
+	gap: 4rpx;
+}
+
+.stat-value {
+	font-size: 32rpx;
+	font-weight: bold;
+	color: white;
+}
+
+.stat-label {
+	font-size: 22rpx;
+	opacity: 0.8;
+	color: white;
+}
+
+// 团队卡片
+.team-card {
+	background: $card-bg;
+	border-radius: 24rpx;
+	padding: 30rpx;
+	margin-bottom: 30rpx;
+	box-shadow: $shadow;
+	transition: all 0.3s;
+	&:active {
+		transform: scale(0.98);
+		box-shadow: $shadow-hover;
+	}
+}
+
+.team-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.team-info {
+	display: flex;
+	align-items: center;
+	gap: 24rpx;
+	flex: 1;
+}
+
+.team-icon-wrapper {
+	width: 96rpx;
+	height: 96rpx;
+	background: linear-gradient(135deg, #2ECC71, #27AE60);
+	border-radius: 20rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: 0 4px 12px rgba(46, 204, 113, 0.3);
+}
+
+.team-details {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 8rpx;
+}
+
+.team-name {
+	font-size: 32rpx;
+	font-weight: bold;
+	color: $text-color;
+}
+
+.team-meta {
+	font-size: 24rpx;
+	color: $text-lighter;
+}
+
+// 卡片通用样式
 .card-box {
-	background: $card-bg; border-radius: 24rpx; padding: 40rpx; box-shadow: $shadow; margin-bottom: 30rpx;
-}
-.card-title-row { display: flex; align-items: center; gap: 16rpx; margin-bottom: 40rpx; }
-.card-title { font-size: 32rpx; font-weight: bold; color: $text-color; }
-
-.completion-section { display: flex; align-items: center; gap: 40rpx; margin-bottom: 40rpx; }
-.completion-chart {
-	width: 180rpx; height: 180rpx; background: #F0F4FF; border-radius: 50%; border: 10rpx solid #E0E7FF;
-	display: flex; flex-direction: column; align-items: center; justify-content: center;
-}
-.completion-rate { font-size: 48rpx; font-weight: bold; color: $theme-color; }
-.completion-label { font-size: 20rpx; color: #888; }
-.completion-stats { flex: 1; display: flex; flex-direction: column; gap: 20rpx; }
-.stat-row { display: flex; justify-content: space-between; font-size: 28rpx; color: #666; }
-.stat-num { font-weight: bold; color: $text-color; }
-.stat-num.warning { color: #F39C12; }
-
-.action-buttons { display: flex; flex-direction: column; gap: 24rpx; }
-.button-primary {
-	background: linear-gradient(135deg, #4C8AF2, #6C5BFF); color: white;
-	height: 96rpx; border-radius: 20rpx; font-size: 30rpx; font-weight: bold;
-	display: flex; align-items: center; justify-content: center; gap: 16rpx;
-}
-.button-outline {
-	background: white; border: 2rpx solid $theme-color; color: $theme-color;
-	height: 96rpx; border-radius: 20rpx; font-size: 30rpx; font-weight: 500;
-	display: flex; align-items: center; justify-content: center; gap: 16rpx;
+	background: $card-bg;
+	border-radius: 24rpx;
+	padding: 40rpx;
+	margin-bottom: 30rpx;
+	box-shadow: $shadow;
 }
 
-.section-header { font-size: 28rpx; font-weight: bold; margin-bottom: 20rpx; display: block; }
-.quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20rpx; }
-.quick-item {
-	background: #F9FAFB; border-radius: 20rpx; padding: 30rpx; display: flex; align-items: center; gap: 20rpx;
+.section-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 30rpx;
 }
-.quick-icon {
-	width: 80rpx; height: 80rpx; border-radius: 16rpx; display: flex; align-items: center; justify-content: center;
-	&.pink { background: linear-gradient(135deg, #F472B6, #EC4899); }
-	&.blue { background: linear-gradient(135deg, #38BDF8, #0EA5E9); }
+
+.header-left {
+	display: flex;
+	align-items: center;
+	gap: 12rpx;
+}
+
+.section-title {
+	font-size: 32rpx;
+	font-weight: bold;
+	color: $text-color;
+}
+
+.view-all {
+	font-size: 26rpx;
+	color: $theme-color;
+}
+
+// 任务列表
+.task-list {
+	display: flex;
+	flex-direction: column;
+	gap: 20rpx;
+}
+
+.task-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 24rpx;
+	background: #F9FAFB;
+	border-radius: 16rpx;
+	transition: all 0.2s;
+	&:active {
+		background: #F3F4F6;
+		transform: scale(0.98);
+	}
+}
+
+.task-item-left {
+	display: flex;
+	align-items: center;
+	gap: 20rpx;
+	flex: 1;
+	min-width: 0;
+}
+
+.task-status-dot {
+	width: 16rpx;
+	height: 16rpx;
+	border-radius: 50%;
+	flex-shrink: 0;
+	&.completed { background: #2ECC71; }
+	&.submitted { background: #4C8AF2; }
+	&.in-progress { background: #F39C12; }
+	&.upcoming { background: #BDC3C7; }
+	&.overdue { background: #E74C3C; }
+}
+
+.task-info {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 8rpx;
+	min-width: 0;
+}
+
+.task-name {
+	font-size: 28rpx;
+	font-weight: 500;
+	color: $text-color;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.task-meta {
+	font-size: 24rpx;
+	color: $text-lighter;
+}
+
+.task-score {
+	color: $theme-color;
+	font-weight: 500;
+}
+
+.task-item-right {
+	flex-shrink: 0;
+}
+
+.task-status-badge {
+	padding: 8rpx 16rpx;
+	border-radius: 20rpx;
+	font-size: 22rpx;
+	&.completed { background: #D5F4E6; color: #2ECC71; }
+	&.submitted { background: #DBEAFE; color: #4C8AF2; }
+	&.in-progress { background: #FEF3C7; color: #F39C12; }
+	&.upcoming { background: #F3F4F6; color: #6B7280; }
+	&.overdue { background: #FEE2E2; color: #E74C3C; }
+}
+
+// 近期任务空提示
+.recent-empty {
+  padding: 20rpx;
+  border-radius: 16rpx;
+  background: #F9FAFB;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.recent-empty-text {
+  font-size: 28rpx;
+  color: $text-light;
+  font-weight: 500;
+}
+
+.recent-empty-hint {
+  font-size: 24rpx;
+  color: $text-lighter;
+}
+
+// 任务地图入口
+.entry-card {
+  background: $card-bg;
+  border-radius: 24rpx;
+  padding: 26rpx 30rpx;
+  margin-bottom: 24rpx;
+  box-shadow: $shadow;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.entry-left {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.entry-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: $text-color;
+}
+
+.entry-right {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.entry-desc {
+  font-size: 24rpx;
+  color: $text-lighter;
+}
+
+// 空状态
+.empty-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 100rpx 0;
+	gap: 20rpx;
+}
+
+.empty-text {
+	font-size: 32rpx;
+	color: $text-light;
+	font-weight: 500;
+}
+
+.empty-hint {
+	font-size: 26rpx;
+	color: $text-lighter;
 }
 </style>
