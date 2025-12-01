@@ -5,7 +5,7 @@
 				<view class="icon-button" @click="goBack">
 					<uni-icons type="left" size="24" color="#555555"></uni-icons>
 				</view>
-				<text class="header-title">提交团队作业</text>
+				<text class="header-title">提交作业</text>
 				<view class="icon-button"></view>
 			</view>
 		</view>
@@ -185,6 +185,21 @@ const calculateCountdown = () => {
 	}
 };
 
+const initTeamContribution = () => {
+  const storyType = currentTask.value?.storyType;
+  // 仅团队任务(2/3)需要初始化贡献度
+  if (storyType !== 2 && storyType !== 3) return;
+  const members = teamMembers.value || [];
+  if (!members.length) return;
+  // 无论之前是否有提交记录，每次进入页面都重新平分 100%
+  const base = Math.floor(100 / members.length);
+  let remainder = 100 - base * members.length;
+  members.forEach((member) => {
+    member.contribution = base + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder -= 1;
+  });
+};
+
 onMounted(() => {
     const permission = contextStore.checkSubmissionPermission();
     if (!permission.allowed) {
@@ -196,6 +211,9 @@ onMounted(() => {
         setTimeout(() => uni.navigateBack(), 1500);
         return;
     }
+    
+    // 初始化团队贡献度均分
+    initTeamContribution();
     
     // 初始化倒计时
     calculateCountdown();

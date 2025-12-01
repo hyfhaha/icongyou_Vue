@@ -23,9 +23,36 @@ const toPercent = (value) => {
   return num > 1 ? Math.round(num) : Math.round(num * 100);
 };
 
+const courseTypeLookup = {
+  '实训': 1,
+  '活动': 2,
+  '必修': 3,
+  '选修': 4,
+  '公共基础': 5
+};
+
+const normalizeCourseType = (raw) => {
+  if (raw === undefined || raw === null || raw === '') return 0;
+  const asNumber = Number(raw);
+  if (!Number.isNaN(asNumber)) {
+    return asNumber;
+  }
+  const key = String(raw).trim();
+  return courseTypeLookup[key] || 0;
+};
+
+const resolveStoryType = (task, fallback = 1) => {
+  const raw = task.story_type ?? task.storyType ?? task.storyTypeId ?? fallback;
+  const value = Number(raw);
+  if (Number.isNaN(value)) return fallback;
+  return value;
+};
+
 const deriveTaskStatus = (task) => {
   // 如果后端直接返回了 status 字段，优先使用
   if (task.status) return task.status;
+  
+  const storyType = resolveStoryType(task, 1);
   
   // 检查截止时间
   let isOverdue = false;
@@ -40,7 +67,7 @@ const deriveTaskStatus = (task) => {
   }
   
   // 如果已提交，根据 work_status 和是否逾期判断
-  if (task.done || task.work_status !== null) {
+  if (task.done || task.work_status !== null && task.work_status !== undefined) {
     // work_status: 1=已点评(completed), 0=未点评(submitted), null=未提交
     if (task.work_status === 1) {
       return 'completed';  // 已点评，直接返回已完成
@@ -59,36 +86,50 @@ const deriveTaskStatus = (task) => {
   }
   
   // 未提交且未逾期：根据任务类型判断
-  return task.story_type === 1 ? 'in-progress' : 'upcoming';
+  return storyType === 1 ? 'in-progress' : 'upcoming';
 };
 
-const mapTaskNode = (task) => ({
-  id: task.id,
-  storyName: task.story_name || task.storyName || task.title || `任务${task.id}`,
-  storyDesc: task.story_desc || task.storyDesc || '',
-  totalScore: task.total_score ?? task.totalScore ?? 0,
-  deadline: task.end_time || task.deadline || '',
-  storyType: task.story_type ?? task.storyType ?? 1,
-  status: deriveTaskStatus(task),
-  x: (task.position_x ?? 1) - 1,
-  y: (task.position_y ?? 1) - 1,
-  goalId: task.goal_id || task.goalId || null,
-  epicId: task.epic_id || task.epicId || null,
-  releaseId: task.release_id || task.releaseId || null
-});
+const mapTaskNode = (task) => {
+  const storyType = resolveStoryType(task, 1);
+  return {
+    id: task.id,
+    storyName: task.story_name || task.storyName || task.title || `任务${task.id}`,
+    storyDesc: task.story_desc || task.storyDesc || '',
+    totalScore: task.total_score ?? task.totalScore ?? 0,
+    deadline: task.end_time || task.deadline || '',
+    storyType,
+    status: deriveTaskStatus({ ...task, story_type: storyType }),
+    x: (task.position_x ?? 1) - 1,
+    y: (task.position_y ?? 1) - 1,
+    goalId: task.goal_id || task.goalId || null,
+    epicId: task.epic_id || task.epicId || null,
+    releaseId: task.release_id || task.releaseId || null
+  };
+};
 
 // [修改] 兼容后端返回的 course_id, course_name, complete_percent 等字段
-const mapCourseListItem = (course) => ({
-  courseId: course.courseId || course.id || course.course_id,
-  courseName: course.courseName || course.name || course.course_name || '未命名课程',
-  teacher: course.teacherName || course.teacher || course.teacher_names || '',
-  cover: course.coverUrl || course.course_pic || '',
-  progress: toPercent(course.progress ?? course.complete_percent),
-  courseType: course.courseType ?? course.course_type ?? 0, // 使用 ?? 确保 0 也是有效值
-  semester: course.semester || course.semester_label || '',
-  studentCount: course.studentCount ?? 0,
-  taskCount: course.totalTasks ?? course.taskCount ?? course.total_tasks ?? 0
-});
+const mapCourseListItem = (course) => {
+  const rawType =
+    course.courseType ??
+    course.course_type ??
+    course.courseTypeId ??
+    course.course_type_id ??
+    course.courseTypeName ??
+    course.course_type_name ??
+    0;
+  const courseType = normalizeCourseType(rawType);
+  return {
+    courseId: course.courseId || course.id || course.course_id,
+    courseName: course.courseName || course.name || course.course_name || '未命名课程',
+    teacher: course.teacherName || course.teacher || course.teacher_names || '',
+    cover: course.coverUrl || course.course_pic || '',
+    progress: toPercent(course.progress ?? course.complete_percent),
+    courseType,
+    semester: course.semester || course.semester_label || '',
+    studentCount: course.studentCount ?? course.student_count ?? 0,
+    taskCount: course.totalTasks ?? course.taskCount ?? course.total_tasks ?? 0
+  };
+};
 
 export const useCourseContextStore = defineStore('courseContext', () => {
   const authStore = useAuthStore();
@@ -122,7 +163,9 @@ export const useCourseContextStore = defineStore('courseContext', () => {
   const myTeam = ref({
     id: null,
     groupName: '',
-    totalScore: 0
+    totalScore: 0,
+    rank: null,
+    rankTotal: null
   });
   const teamMembers = ref([]);
 
@@ -208,39 +251,30 @@ export const useCourseContextStore = defineStore('courseContext', () => {
       const teams = await getMyTeams();
       const target = (teams || []).find((team) => String(team.courseId) === String(courseId));
       if (!target) {
-        myTeam.value = { id: null, groupName: '', totalScore: 0 };
+        myTeam.value = { id: null, groupName: '', totalScore: 0, rank: null, rankTotal: null };
         teamMembers.value = [];
         return;
       }
-      myTeam.value = {
-        id: target.teamId,
-        groupName: target.groupName,
-        totalScore: target.score ?? target.totalScore ?? 0
-      };
       const detail = await getTeamDetail(target.teamId);
+      const detailTeam = detail?.team || {};
+      myTeam.value = {
+        id: detailTeam.id || target.teamId,
+        groupName: detailTeam.groupName || target.groupName,
+        totalScore: detailTeam.totalScore ?? target.score ?? target.totalScore ?? 0,
+        rank: detailTeam.rank ?? null,
+        rankTotal: detailTeam.rankTotal ?? null
+      };
       teamMembers.value = (detail?.members || []).map((member) => {
         // 兼容多种学号字段命名方式
         const studentId = member.studentId || member.jobNumber || member.job_number || '';
-        
-        // 重要：member.id 是 course_student 表的 id（如 10001），不是用户ID
-        // member.student_id 才是用户ID（user.id，如 17）
-        // 后端返回的数据中，student_id 字段就是用户ID
-        
-        console.log('团队成员数据:', {
-          id: member.id, // course_student.id
-          student_id: member.student_id, // user.id（用户ID）
-          name: member.name,
-          studentId: studentId, // 学号
-          jobNumber: member.jobNumber,
-          job_number: member.job_number
-        });
+        const leaderFlag = Number(member.isLeader ?? member.leader ?? 0) === 1;
         
         return {
           id: member.id, // course_student.id（保留用于其他用途）
           userId: member.student_id, // 用户ID（user.id），用于提交时匹配贡献度
           name: member.name,
-          studentId: studentId, // 学号
-          isLeader: !!member.isLeader,
+          studentId,
+          isLeader: leaderFlag,
           contribution: member.contributionRate != null
             ? Math.round(member.contributionRate * 100)
             : member.contribution ?? 0,
