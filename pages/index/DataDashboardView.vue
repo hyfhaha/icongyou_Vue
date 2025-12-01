@@ -98,7 +98,7 @@
 							<text class="info-icon">🎓</text>
 							<view class="info-content">
 								<text class="info-label">学号</text>
-								<text class="info-val">{{ authStore.userInfo.jobNumber || '--' }}</text>
+								<text class="info-val">{{ jobNumberDisplay }}</text>
 							</view>
 						</view>
 						<view class="info-item" v-if="currentCourse.courseName">
@@ -106,8 +106,8 @@
 							<view class="info-content">
 								<text class="info-label">当前课程</text>
 								<text class="info-val">{{ currentCourse.courseName }}</text>
-					</view>
-					</view>
+							</view>
+						</view>
 					</view>
 				</view>
 
@@ -184,8 +184,11 @@
 								<text class="ts-lbl">成员</text>
 							</view>
 							<view class="t-stat">
-								<text class="ts-val">{{ teamRank ? `#${teamRank}` : '--' }}</text>
-								<text class="ts-lbl">排名</text>
+								<text class="ts-val">{{ myTeam.rank ? ('#' + myTeam.rank) : '--' }}</text>
+								<view class="ts-lbl ts-lbl-row">
+                  <text>排名</text>
+                  <text v-if="myTeam.rankTotal" class="ts-sub">/ {{ myTeam.rankTotal }}</text>
+                </view>
 							</view>
 							<view class="t-stat">
 								<text class="ts-val">{{ completedTeamTasksCount }}</text>
@@ -216,6 +219,7 @@
 									<view class="m-name-row">
 										<text class="m-name">{{ m.name || '未知' }}</text>
 										<text v-if="m.isLeader" class="leader-tag">队长</text>
+                    <text v-else class="member-tag">队员</text>
 									</view>
 									<text class="m-id" v-if="m.studentId">学号: {{ m.studentId }}</text>
 									<text class="m-id" v-else>学号: --</text>
@@ -283,7 +287,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
-import { onShow } from '@dcloudio/uni-app';
+import { onShow, onPullDownRefresh } from '@dcloudio/uni-app';
 // 引入两个 Store
 import { useAuthStore } from '@/store/authStore';
 import { useCourseContextStore } from '@/store/courseContextStore';
@@ -332,10 +336,47 @@ const applyTabFromParams = () => {
       const tab = options.tab;
       if (tab === 'team' || tab === 'personal') {
         activeTab.value = tab;
+        return;
       }
     }
   } catch (e) {
     console.warn('读取 tab 参数失败', e);
+  }
+  // 如果没有 tab 参数，尝试读取本地缓存
+  try {
+    const cachedTab = uni.getStorageSync('dashboardActiveTab');
+    if (cachedTab === 'team' || cachedTab === 'personal') {
+      activeTab.value = cachedTab;
+    }
+  } catch (e) {
+    console.warn('读取本地缓存 tab 失败', e);
+  }
+};
+
+const persistActiveTab = () => {
+  try {
+    uni.setStorageSync('dashboardActiveTab', activeTab.value);
+  } catch (e) {
+    console.warn('缓存 tab 失败', e);
+  }
+};
+
+const jobNumberDisplay = computed(() => authStore.userInfo.jobNumber || authStore.userInfo.job_number || '--');
+
+const ensureAuth = async () => {
+  try {
+    if (!authStore.token) {
+      await authStore.checkLoginStatus();
+    }
+    if (!authStore.token) {
+      uni.reLaunch({ url: '/pages/index/LoginView' });
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn('DataDashboard 确认登录状态失败', e);
+    uni.reLaunch({ url: '/pages/index/LoginView' });
+    return false;
   }
 };
 
@@ -357,11 +398,16 @@ const taskStats = computed(() => {
   };
 });
 
+const isTeamTask = (task) => {
+  const storyType = Number(task.storyType ?? task.story_type ?? 0);
+  return [2, 3].includes(storyType);
+};
+
 // 计算已完成团队任务数
 const completedTeamTasksCount = computed(() => {
   const tasks = taskNodes.value || [];
   return tasks.filter(task => 
-    task.storyType === 2 && 
+    isTeamTask(task) && 
     (task.status === 'completed' || task.status === 'submitted')
   ).length;
 });
@@ -383,7 +429,7 @@ const teamStats = computed(() => {
   );
 
   const tasks = taskNodes.value || [];
-  const teamTasks = tasks.filter(t => t.storyType === 2);
+  const teamTasks = tasks.filter(isTeamTask);
   const completedCount = teamTasks.filter(t => t.status === 'completed' || t.status === 'submitted').length;
   const completionRate = teamTasks.length > 0 ? Math.round((completedCount / teamTasks.length) * 100) : 0;
 
@@ -423,8 +469,6 @@ const getContributionColor = (contribution) => {
   return 'linear-gradient(135deg, #BDC3C7, #95A5A6)';
 };
 
-// 团队排名（暂时显示 "--"，后续可以从后端获取）
-const teamRank = ref(null);
 
 // 加载团队数据
 const loadTeamData = async () => {
@@ -536,26 +580,27 @@ const initCourseIfNeeded = async () => {
 };
 
 onMounted(async () => {
-    // 先根据路由参数设置默认 tab
-    applyTabFromParams();
-    // 确保已登录，否则显示默认值
-    if(authStore.userInfo.nickname === '未登录') {
-        authStore.login();
-    }
-    
-    // 初始化课程上下文（如果需要）
-    const success = await initCourseIfNeeded();
-    if (!success) {
-      console.warn('⚠️ 课程初始化失败，部分数据可能无法加载');
-    }
-    
-    // 加载团队数据
-    loadTeamData();
+  // 确保已登录
+  const ok = await ensureAuth();
+  if (!ok) return;
+
+  // 先根据路由参数设置默认 tab
+  applyTabFromParams();
+  
+  // 初始化课程上下文（如果需要）
+  const success = await initCourseIfNeeded();
+  if (!success) {
+    console.warn('⚠️ 课程初始化失败，部分数据可能无法加载');
+  }
+  
+  // 加载团队数据
+  loadTeamData();
 });
 
 // 当切换到团队标签页时，确保数据已加载
 const handleTabChange = (tab) => {
   activeTab.value = tab;
+  persistActiveTab();
   if (tab === 'team') {
     loadTeamData();
   }
@@ -564,6 +609,11 @@ const handleTabChange = (tab) => {
 onShow(async () => {
   // 每次显示页面时，根据路由参数同步一次 tab（防止返回后状态不一致）
   applyTabFromParams();
+  persistActiveTab();
+  
+  const ok = await ensureAuth();
+  if (!ok) return;
+  
   // 每次显示页面时，重新初始化课程上下文（防止刷新后丢失）
   const success = await initCourseIfNeeded();
   if (!success) {
@@ -573,6 +623,30 @@ onShow(async () => {
   if (activeTab.value === 'team') {
     loadTeamData();
     }
+});
+
+// 下拉刷新：根据当前 tab 重拉对应数据
+onPullDownRefresh(async () => {
+  const ok = await ensureAuth();
+  if (!ok) {
+    uni.stopPullDownRefresh();
+    return;
+  }
+
+  const success = await initCourseIfNeeded();
+  if (!success) {
+    uni.stopPullDownRefresh();
+    return;
+  }
+
+  if (activeTab.value === 'team') {
+    await loadTeamData();
+  } else {
+    // 个人数据主要依赖 taskNodes/personalData，重新初始化课程上下文即可
+    await contextStore.initCourseContext(currentCourseId.value || getCourseIdFromParams());
+  }
+
+  uni.stopPullDownRefresh();
 });
 
 const goBack = () => uni.navigateBack();
@@ -869,6 +943,8 @@ $theme-color: #4C8AF2;
 }
 .ts-val { font-size: 36rpx; font-weight: bold; }
 .ts-lbl { font-size: 22rpx; opacity: 0.8; margin-top: 4rpx; }
+.ts-lbl-row { display: flex; align-items: center; gap: 6rpx; }
+.ts-sub { font-size: 20rpx; opacity: 0.7; }
 
 .member-item { 
 	display: flex; 
@@ -933,6 +1009,13 @@ $theme-color: #4C8AF2;
 	color: #D97706; 
 	padding: 2rpx 10rpx; 
 	border-radius: 8rpx; 
+}
+.member-tag {
+  font-size: 20rpx;
+  background: #E0E7FF;
+  color: #4C8AF2;
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
 }
 .m-id { 
 	font-size: 24rpx; 

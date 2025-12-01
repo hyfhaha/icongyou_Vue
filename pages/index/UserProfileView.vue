@@ -38,7 +38,17 @@
 			
 			<view class="info-item">
 				<text class="label">学号</text>
-				<text class="value">{{ userInfo.jobNumber }}</text>
+				<text class="value">{{ jobNumberDisplay }}</text>
+			</view>
+			
+			<view class="info-item">
+				<text class="label">手机号</text>
+				<text class="value">{{ phoneDisplay }}</text>
+			</view>
+			
+			<view class="info-item">
+				<text class="label">邮箱</text>
+				<text class="value">{{ emailDisplay }}</text>
 			</view>
 			
 			<view class="info-item">
@@ -59,11 +69,42 @@
 </template>
 
 <script setup>
+import { computed } from 'vue';
+import { onShow, onPullDownRefresh } from '@dcloudio/uni-app';
 import { storeToRefs } from 'pinia';
 import { useAuthStore } from '@/store/authStore';
 
 const authStore = useAuthStore();
 const { userInfo } = storeToRefs(authStore);
+
+const jobNumberDisplay = computed(() => userInfo.value.jobNumber || userInfo.value.job_number || '--');
+const phoneDisplay = computed(() => userInfo.value.phoneNumber || userInfo.value.phone_number || userInfo.value.mobile || '未提供');
+const emailDisplay = computed(() => userInfo.value.email || userInfo.value.mail || '未提供');
+
+const loadProfile = async (showLoading = false) => {
+  if (showLoading) {
+    uni.showLoading({ title: '加载中...' });
+  }
+  try {
+    await authStore.checkLoginStatus();
+  } catch (err) {
+    console.warn('刷新个人资料失败', err);
+    uni.showToast({ title: '获取资料失败', icon: 'none' });
+  } finally {
+    if (showLoading) {
+      uni.hideLoading();
+    }
+  }
+};
+
+onShow(() => {
+  loadProfile();
+});
+
+onPullDownRefresh(async () => {
+  await loadProfile();
+  uni.stopPullDownRefresh();
+});
 
 const goBack = () => {
 	uni.navigateBack();

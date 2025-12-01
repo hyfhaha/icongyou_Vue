@@ -113,7 +113,7 @@
 </template>
 
 <script setup>
-import { onShow } from '@dcloudio/uni-app';
+import { onShow, onPullDownRefresh } from '@dcloudio/uni-app';
 import { storeToRefs } from 'pinia';
 import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -122,9 +122,34 @@ const settingsStore = useSettingsStore();
 const authStore = useAuthStore();
 const { userInfo, userStats } = storeToRefs(authStore);
 
-// [修改] 每次进入页面刷新统计数据
+const ensureAuthAndStats = async () => {
+  try {
+    // 先尝试恢复登录状态（应对刷新后 store 为空的情况）
+    if (!authStore.token) {
+      await authStore.checkLoginStatus();
+    }
+    if (!authStore.token) {
+      // 未登录或会话失效，返回登录页
+      uni.reLaunch({ url: '/pages/index/LoginView' });
+      return;
+    }
+    // 刷新统计数据
+    await authStore.fetchGlobalStats();
+  } catch (err) {
+    console.warn('ProfileView 加载用户数据失败', err);
+    uni.showToast({ title: '加载用户信息失败', icon: 'none' });
+  }
+};
+
+// 每次进入页面时确保登录状态和统计数据最新
 onShow(() => {
-	authStore.fetchGlobalStats();
+  ensureAuthAndStats();
+});
+
+// 下拉刷新：重新拉取用户信息与统计数据
+onPullDownRefresh(async () => {
+  await ensureAuthAndStats();
+  uni.stopPullDownRefresh();
 });
 
 // [修改] 移除 '修改密码'

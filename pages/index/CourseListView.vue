@@ -84,7 +84,10 @@
 					<view class="card-meta">
 						<uni-icons type="person" size="14" color="#888"></uni-icons>
 						<text class="card-teacher">{{ course.teacher }}</text>
-						<text class="card-semester"> · {{ course.semester }}</text>
+						<text
+              v-if="course.semester"
+              class="card-semester"
+            > · {{ course.semester }}</text>
 					</view>
 
 					<view class="card-stats">
@@ -117,11 +120,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useCourseContextStore } from '@/store/courseContextStore';
+import { useAuthStore } from '@/store/authStore';
 import { onPullDownRefresh, onShow } from '@dcloudio/uni-app';
 
+const authStore = useAuthStore();
 const contextStore = useCourseContextStore();
 // [修改] 引入加载状态
 const { courseList, courseListLoading } = storeToRefs(contextStore);
@@ -138,18 +143,44 @@ const filters = [
   { value: 5, label: '公共基础' }
 ];
 
+const loadCourseList = async () => {
+  try {
+    // 确保已恢复登录状态（处理刷新后 token 在 storage 但 store 为空的情况）
+    if (!authStore.token) {
+      await authStore.checkLoginStatus();
+    }
+    if (!authStore.token) {
+      // 仍然没有登录信息，跳回登录页
+      uni.reLaunch({ url: '/pages/index/LoginView' });
+      return;
+    }
+
+    const params = {};
+    const filterValue = Number(activeFilter.value);
+    if (!Number.isNaN(filterValue) && filterValue !== 0) {
+      params.courseType = filterValue;
+    }
+    await contextStore.fetchCourseList(params);
+  } catch (err) {
+    console.warn('加载课程列表失败', err);
+    uni.showToast({ title: '加载课程失败，请重试', icon: 'none' });
+  }
+};
+
 // [修改] 使用 onShow 代替 onMounted，确保每次进入页面都可能刷新
 onShow(() => {
-	// 如果列表为空，则自动加载
-	if (courseList.value.length === 0) {
-		contextStore.fetchCourseList();
-	}
+	loadCourseList();
 });
 
 // [新增] 下拉刷新
 onPullDownRefresh(async () => {
-    await contextStore.fetchCourseList();
+    await loadCourseList();
     uni.stopPullDownRefresh();
+});
+
+watch(activeFilter, (val, oldVal) => {
+  if (val === oldVal) return;
+  loadCourseList();
 });
 
 const getCourseTypeLabel = (typeId) => {
@@ -167,10 +198,11 @@ const filteredCourses = computed(() => {
   let res = courseList.value || [];
   
   // 筛选：按课程类型
-  if (activeFilter.value !== 0) {
+  const filterValue = Number(activeFilter.value);
+  if (!Number.isNaN(filterValue) && filterValue !== 0) {
     res = res.filter(c => {
-      const courseType = c.courseType ?? 0;
-      return courseType === activeFilter.value;
+      const courseType = Number(c.courseType ?? c.course_type ?? 0);
+      return !Number.isNaN(courseType) && courseType === filterValue;
     });
   }
   

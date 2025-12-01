@@ -160,11 +160,20 @@ const overdueTasksCount = computed(() => {
 
 // 获取近期任务（进行中 + 已提交，按截止时间排序）
 const urgentTasks = computed(() => {
+  const statusPriority = {
+    'in-progress': 0,
+    'submitted': 1
+  };
 	const urgent = taskNodes.value.filter(t => 
     ['in-progress', 'submitted'].includes(t.status)
 	);
-	// 按截止时间排序，有截止时间的优先
+	// 先按状态优先级排序，再按截止时间
 	return urgent.sort((a, b) => {
+    const priorityDiff =
+      (statusPriority[a.status] ?? 99) - (statusPriority[b.status] ?? 99);
+    if (priorityDiff !== 0) {
+      return priorityDiff;
+    }
 		if (!a.deadline && !b.deadline) return 0;
 		if (!a.deadline) return 1;
 		if (!b.deadline) return -1;

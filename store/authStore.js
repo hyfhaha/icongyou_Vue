@@ -13,19 +13,23 @@ const createEmptyUser = () => ({
   avatarUrl: '',
   deptId: null,
   deptName: '', // [新增] 班级/专业名称
-  userRole: 0
+  userRole: 0,
+  phoneNumber: '',
+  email: ''
 });
 
 const mapUserPayload = (payload = {}) => ({
   id: payload.id ?? null,
   username: payload.username ?? '',
   nickname: payload.nickname ?? payload.username ?? '未登录',
-  jobNumber: payload.jobNumber || payload.job_number || payload.username || '',
+  jobNumber: payload.jobNumber || payload.job_number || '',
   avatarUrl: payload.avatarUrl || payload.avatar_url || '',
   deptId: payload.deptId || payload.dept_id || null,
   // [新增] 映射 dept_name
   deptName: payload.deptName || payload.dept_name || '暂无班级信息', 
-  userRole: payload.userRole || payload.user_role || 0
+  userRole: payload.userRole || payload.user_role || 0,
+  phoneNumber: payload.phoneNumber || payload.phone_number || payload.mobile || '',
+  email: payload.email || payload.mail || ''
 });
 
 export const useAuthStore = defineStore('auth', () => {
@@ -87,6 +91,16 @@ const fetchGlobalStats = async () => {
     }
 };
 
+  const refreshProfile = async (options = {}) => {
+    if (!token.value) {
+      console.warn('refreshProfile: token 缺失，无法获取用户信息');
+      return null;
+    }
+    const profile = await getCurrentUser();
+    applyUserSession(profile, token.value, options);
+    return profile;
+  };
+
   const login = async (credentials = {}) => {
     const username = credentials.username || credentials.studentId;
     const password = credentials.password;
@@ -96,6 +110,11 @@ const fetchGlobalStats = async () => {
     try {
       const result = await loginApi({ username, password });
       applyUserSession(result.user, result.token);
+      try {
+        await refreshProfile();
+      } catch (profileErr) {
+        console.warn('登录后刷新用户信息失败', profileErr);
+      }
       // 登录成功后顺便拉取一次统计
       fetchGlobalStats();
       return result;
@@ -127,8 +146,7 @@ const fetchGlobalStats = async () => {
       userInfo.value = storedUser;
     }
     try {
-      const profile = await getCurrentUser();
-      applyUserSession(profile, storedToken);
+      await refreshProfile({ skipPersist: false });
       // 恢复会话时也刷新统计
       fetchGlobalStats();
     } catch (error) {
@@ -136,6 +154,7 @@ const fetchGlobalStats = async () => {
       if (!storedUser) {
         logout();
       }
+      throw error;
     }
   };
 
@@ -147,6 +166,7 @@ const fetchGlobalStats = async () => {
     loginAsMock,
     logout,
     checkLoginStatus,
-    fetchGlobalStats // 导出
+    fetchGlobalStats, // 导出
+    refreshProfile
   };
 });
