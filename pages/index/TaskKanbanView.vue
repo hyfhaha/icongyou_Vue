@@ -574,37 +574,117 @@ display: flex;
 
 /* 弹窗 */
 .task-overlay {
-	position: fixed; left: 0; top: 0; width: 100%; height: 100%;
-	background: rgba(0, 0, 0, 0.5); z-index: 100;
-	display: flex; align-items: center; justify-content: center;
-	padding: 40rpx;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;  /* [关键] 同时设置左右为0 */
+    bottom: 0; /* [关键] 同时设置上下为0 */
+    
+    width: 100%;
+    height: 100%;
+    
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 100;
+    
+    /* [关键] 强制内容水平垂直居中 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
     backdrop-filter: blur(2px);
 }
 .task-detail-card {
-	width: 100%; max-width: 560rpx;
-	background: #fff; border-radius: 20rpx; padding: 36rpx;
-	box-shadow: 0 10rpx 40rpx rgba(0,0,0,0.2);
-	animation: popIn 0.15s ease-out;
+    /* 宽度占据屏幕的 85% */
+    width: 85%;
+    /* 最大宽度放宽到 700rpx (原 560rpx) */
+    max-width: 560rpx;
+    
+    /* 背景与圆角 */
+    background: #fff;
+    border-radius: 32rpx; /* 圆角也稍微加大一点，更圆润 */
+    
+    /* [关键] 增加内边距，让内容呼吸感更强 */
+    padding: 50rpx 40rpx;
+    
+    /* 阴影加重，增加浮起感 */
+    box-shadow: 0 20rpx 60rpx rgba(0,0,0,0.2);
+	
+	/* [关键修改] 设置最小高度，让它竖向变长 */
+	    min-height: 65vh;  /* 占据屏幕高度的 65% */
+	    max-height: 85vh;  /* 防止太高超出屏幕 */
+    
+    /* 动画稍微调慢一点点，更有质感 */
+    animation: popIn 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    
+    /* 防止内容过多溢出屏幕，设置最大高度 */
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
 }
 @keyframes popIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 
 .task-detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24rpx; }
-.task-detail-title { font-size: 32rpx; font-weight: bold; color: $text-main; }
+.task-detail-title {
+    font-size: 40rpx; /* 原 32rpx */
+    font-weight: bold;
+    color: $text-main;
+    line-height: 1.4;
+    margin-bottom: 8rpx;
+}
 .task-detail-id { font-size: 22rpx; color: $text-sub; background: #f0f0f0; padding: 4rpx 10rpx; border-radius: 6rpx; font-family: monospace;}
 
-.task-detail-row { display: flex; margin-bottom: 12rpx; font-size: 24rpx; }
-.detail-label { width: 100rpx; color: $text-sub; flex-shrink: 0; }
+.task-detail-row {
+    display: flex;
+    margin-bottom: 24rpx; /* 间距拉大 */
+    font-size: 40rpx;     /* 字号微调 */
+	margin-top: auto;
+    line-height: 1.6;
+}
+.detail-label {
+    width: 110rpx; /* 稍微宽一点 */
+    color: $text-sub;
+    flex-shrink: 0;
+}
 .detail-value { flex: 1; color: $text-main; line-height: 1.4; }
 .status-text.completed { color: #2ECC71; font-weight: bold; }
 .status-text.submitted { color: #F39C12; font-weight: bold; }
 .status-text.in-progress { color: #4C8AF2; font-weight: bold; }
 .status-text.overdue { color: #E74C3C; font-weight: bold; }
-.detail-actions { margin-top: 36rpx; display: flex; flex-direction: column; align-items: stretch; gap: 16rpx; }
+.detail-actions {
+    /* [关键修改] auto 会自动占据剩余空间，把按钮推到卡片最底部 */
+    margin-top: auto; 
+    
+    display: flex; 
+    flex-direction: column; 
+    align-items: stretch; 
+    gap: 30rpx;
+    
+    /* 如果觉得离上面内容太近，可以加个最小间距 */
+    padding-top: 40rpx; 
+}
 .button-primary {
-	height: 80rpx; border-radius: 12rpx;
-	background: linear-gradient(135deg, #4C8AF2, #6C5BFF);
-	color: #fff; font-size: 26rpx; font-weight: bold;
-	display: flex; align-items: center; justify-content: center;
+    /* [关键] 高度加大 */
+    height: 110rpx; 
+    
+    border-radius: 24rpx; /* 圆角也配合加大 */
+    background: linear-gradient(135deg, #4C8AF2, #6C5BFF);
+    color: #fff;
+    
+    /* [关键] 字体变大 */
+    font-size: 34rpx; 
+    font-weight: bold;
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    /* 增加阴影，让大按钮更有层次感 */
+    box-shadow: 0 8rpx 20rpx rgba(76, 138, 242, 0.4);
+    
+    &:active {
+        transform: scale(0.98);
+        opacity: 0.9;
+    }
 }
 .swipe-hint { font-size: 20rpx; color: #bbb; text-align: center; }
 </style>
