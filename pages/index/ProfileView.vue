@@ -209,7 +209,7 @@ const handleMenuClick = (id) => {
           break;
     //case 'favorites':
     case 'notifications':
-      uni.showToast({ title: '功能开发中', icon: 'none' });
+      uni.navigateTo({ url: '/pages/index/MessageListView' });
       break;
       
     default:

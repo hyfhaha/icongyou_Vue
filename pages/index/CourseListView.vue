@@ -13,12 +13,12 @@
 				</view>
 				
 				<view class="header-right">
-					<view class="icon-button">
+					<view class="icon-button"@click="goToMessages">
 						<uni-icons type="notification" size="24" color="#555555"></uni-icons>
 						<view class="dot"></view>
 					</view>
-					<view class="profile-avatar">
-						<text class="profile-initial">张</text>
+					<view class="profile-avatar" @click="handleGoProfile">
+					    <text class="profile-initial">{{ userInfo.nickname ? userInfo.nickname.charAt(0) : '未' }}</text>
 					</view>
 				</view>
 			</view>
@@ -130,6 +130,7 @@ const authStore = useAuthStore();
 const contextStore = useCourseContextStore();
 // [修改] 引入加载状态
 const { courseList, courseListLoading } = storeToRefs(contextStore);
+const { userInfo } = storeToRefs(authStore);
 
 const searchQuery = ref('');
 const activeFilter = ref(0); // 0=全部
@@ -182,6 +183,14 @@ watch(activeFilter, (val, oldVal) => {
   if (val === oldVal) return;
   loadCourseList();
 });
+
+const goToMessages = () => {
+  uni.navigateTo({ url: '/pages/index/MessageListView' });
+};
+
+const handleGoProfile = () => {
+    uni.switchTab({ url: '/pages/index/ProfileView' });
+};
 
 const getCourseTypeLabel = (typeId) => {
   const map = { 1: '实训', 2: '活动', 3: '必修', 4: '选修', 5: '公共基础' };

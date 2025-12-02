@@ -99,7 +99,21 @@
 			"path": "pages/index/AchievementsView",
 			"style": {"navigationBarTitleText": "我的成就",
 						"navigationStyle": "custom" }
-		}
+		},
+		{
+		      "path": "pages/index/MessageListView",
+		      "style": {
+		        "navigationBarTitleText": "消息通知",
+		        "enablePullDownRefresh": true
+		      }
+		    },
+		    {
+		      "path": "pages/index/ChatDetailView",
+		      "style": {
+		        "navigationBarTitleText": "聊天",
+		        "navigationBarBackgroundColor": "#F4F7FA"
+		      }
+		    }
 	],
 	"globalStyle": {
 		"navigationBarTextStyle": "black",
