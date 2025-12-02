@@ -4,8 +4,8 @@
 			<view class="profile-header">
 				<view class="avatar-wrapper">
 					<image 
-						v-if="userInfo.avatarUrl" 
-						:src="userInfo.avatarUrl" 
+						v-if="avatarSrc" 
+						:src="avatarSrc" 
 						class="avatar-img" 
 						mode="aspectFill" 
 					/>
@@ -113,14 +113,29 @@
 </template>
 
 <script setup>
+import { computed } from 'vue';
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app';
 import { storeToRefs } from 'pinia';
 import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
+import RequestConfig from '@/utils/request';
 
 const settingsStore = useSettingsStore();
 const authStore = useAuthStore();
 const { userInfo, userStats } = storeToRefs(authStore);
+
+// 头像地址处理：后端返回 /uploads/... 时，拼接服务器 BaseURL
+const avatarSrc = computed(() => {
+  const raw = userInfo.value?.avatarUrl;
+  if (!raw) return '';
+  // 已经是完整 http(s) 地址，直接使用
+  if (/^https?:\/\//i.test(raw)) {
+    return raw;
+  }
+  const base = RequestConfig.baseUrl.replace(/\/$/, '');
+  const path = String(raw).startsWith('/') ? raw : `/${raw}`;
+  return base + path;
+});
 
 const ensureAuthAndStats = async () => {
   try {

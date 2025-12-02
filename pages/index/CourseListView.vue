@@ -4,7 +4,12 @@
 			<view class="header-content">
 				<view class="header-left">
 					<view class="logo-bg">
-						<uni-icons type="pyq" size="24" color="#FFFFFF"></uni-icons>
+						<!-- 替换为自定义鱼形图标 -->
+						<image
+							class="logo-image"
+							src="/static/icon.png"
+							mode="aspectFit"
+						/>
 					</view>
 					<view>
 						<text class="header-title">我的课程</text>
@@ -67,7 +72,14 @@
 				class="course-card"
 			>
 				<view class="card-image-wrapper">
-					<view class="placeholder-img"></view>
+					<!-- 优先显示课程封面图，加载失败时回退为占位背景 -->
+					<image
+						v-if="course.cover"
+						class="card-image"
+						:src="getCourseCoverUrl(course.cover)"
+						mode="aspectFill"
+					/>
+					<view v-else class="placeholder-img"></view>
 					
 					<view class="tag-top-left">
 						<text class="tag-text">{{ getCourseTypeLabel(course.courseType) }}</text>
@@ -125,6 +137,7 @@ import { storeToRefs } from 'pinia';
 import { useCourseContextStore } from '@/store/courseContextStore';
 import { useAuthStore } from '@/store/authStore';
 import { onPullDownRefresh, onShow } from '@dcloudio/uni-app';
+import RequestConfig from '@/utils/request';
 
 const authStore = useAuthStore();
 const contextStore = useCourseContextStore();
@@ -203,6 +216,19 @@ const getProgressColor = (progress) => {
   return '#F39C12';
 };
 
+// 组装课程封面完整地址（后端返回的是 /uploads/...，需要拼接 BaseURL）
+const getCourseCoverUrl = (coverPath) => {
+  if (!coverPath) return '';
+  // 如果已经是完整的 http(s) 地址，直接返回
+  if (/^https?:\/\//i.test(coverPath)) {
+    return coverPath;
+  }
+  // 确保只有一个斜杠拼接
+  const base = RequestConfig.baseUrl.replace(/\/$/, '');
+  const path = String(coverPath).startsWith('/') ? coverPath : `/${coverPath}`;
+  return base + path;
+};
+
 const filteredCourses = computed(() => {
   let res = courseList.value || [];
   
@@ -274,14 +300,19 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	align-items: center;
 	gap: 24rpx;
 	.logo-bg {
+		/* 去掉背景框，仅用于控制图标尺寸和布局 */
 		width: 80rpx;
 		height: 80rpx;
-		background: linear-gradient(135deg, #4C8AF2, #6C5BFF);
-		border-radius: 20rpx;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		box-shadow: 0 4rpx 10rpx rgba(76, 138, 242, 0.3);
+		background: transparent;
+		border-radius: 0;
+		box-shadow: none;
+		.logo-image {
+			width: 60rpx;
+			height: 60rpx;
+		}
 	}
 	.header-title {
 		font-size: 36rpx;

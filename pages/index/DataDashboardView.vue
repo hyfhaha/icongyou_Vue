@@ -106,8 +106,8 @@
 							<view class="info-content">
 								<text class="info-label">当前课程</text>
 								<text class="info-val">{{ currentCourse.courseName }}</text>
-							</view>
-						</view>
+					</view>
+					</view>
 					</view>
 				</view>
 

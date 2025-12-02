@@ -1,119 +1,133 @@
 {
 	"pages": [
 		{
-
 			"path": "pages/index/LoginView",
 			"style": {
-				"navigationBarTitleText": "登录"
+				"navigationBarTitleText": "登录",
+				"enablePullDownRefresh": true
 			}
 		},
 		{
-
 			"path": "pages/index/CourseListView",
 			"style": {
-				"navigationBarTitleText": "我的课程"
+				"navigationBarTitleText": "我的课程",
+				"enablePullDownRefresh": true
 			}
 		},
 		{
-
 			"path": "pages/index/CourseHomeView",
 			"style": {
-				"navigationBarTitleText": "课程总览"
+				"navigationBarTitleText": "课程总览",
+				"enablePullDownRefresh": true
 			}
 		},
 		{
-
 			"path": "pages/index/TaskKanbanView",
 			"style": {
-				"navigationBarTitleText": "任务看板"
+				"navigationBarTitleText": "任务看板",
+				"enablePullDownRefresh": true
 			}
 		},
 		{
-
 			"path": "pages/index/TaskAnalyticsView",
 			"style": {
-				"navigationBarTitleText": "任务数据看板"
+				"navigationBarTitleText": "任务数据看板",
+				"enablePullDownRefresh": true
 			}
 		},
 		{
-
 			"path": "pages/index/TaskDetailView",
 			"style": {
-				"navigationBarTitleText": "任务详情"
+				"navigationBarTitleText": "任务详情",
+				"enablePullDownRefresh": true
 			}
 		},
 		{
-
 			"path": "pages/index/ExcellentWorksView",
 			"style": {
-				"navigationBarTitleText": "优秀作业"
+				"navigationBarTitleText": "优秀作业",
+				"enablePullDownRefresh": true
 			}
 		},
 		{
-
 			"path": "pages/index/AITutorView",
 			"style": {
-				"navigationBarTitleText": "AI 互动"
+				"navigationBarTitleText": "AI 互动",
+				"enablePullDownRefresh": true
 			}
 		},
 		{
-
 			"path": "pages/index/SubmissionView",
 			"style": {
-				"navigationBarTitleText": "提交作业"
+				"navigationBarTitleText": "提交作业",
+				"enablePullDownRefresh": true
 			}
 		},
-
 		{
-
 			"path": "pages/index/ProfileView",
 			"style": {
-				"navigationBarTitleText": "个人中心"
+				"navigationBarTitleText": "个人中心",
+				"enablePullDownRefresh": true
 			}
 		},
 		{
-
 			"path": "pages/index/DataDashboardView",
-			"style": { "navigationBarTitleText": "数据中心" }
+			"style": {
+				"navigationBarTitleText": "数据中心",
+				"enablePullDownRefresh": true
+			}
 		},
 		{
-
 			"path": "pages/index/SettingsView",
 			"style": {
-				"navigationBarTitleText": "设置"
+				"navigationBarTitleText": "设置",
+				"enablePullDownRefresh": true
 			}
 		},
 		{
 		    "path": "pages/index/UserProfileView",
-		    "style": { "navigationBarTitleText": "个人资料" }
+		    "style": {
+				"navigationBarTitleText": "个人资料",
+				"enablePullDownRefresh": true
+			}
 		},
 		{
 		    "path": "pages/index/HelpView",
-		    "style": { "navigationBarTitleText": "帮助中心" }
+		    "style": {
+				"navigationBarTitleText": "帮助中心",
+				"enablePullDownRefresh": true
+			}
 		},
 		{
 		    "path": "pages/index/AboutView",
-		    "style": { "navigationBarTitleText": "关于我们" }
+		    "style": {
+				"navigationBarTitleText": "关于我们",
+				"enablePullDownRefresh": true
+			}
 		},
 		{
 			"path": "pages/index/AchievementsView",
-			"style": {"navigationBarTitleText": "我的成就",
-						"navigationStyle": "custom" }
+			"style": {
+				"navigationBarTitleText": "我的成就",
+				"navigationStyle": "custom",
+				"enablePullDownRefresh": true
+			}
 		},
 		{
-		      "path": "pages/index/MessageListView",
-		      "style": {
-		        "navigationBarTitleText": "消息通知",
-		        "enablePullDownRefresh": true
-		      }
-		    },
-		    {
-		      "path": "pages/index/ChatDetailView",
-		      "style": {
-		        "navigationBarTitleText": "聊天",
-		        "navigationBarBackgroundColor": "#F4F7FA"
-		      }
-		    }
+		  "path": "pages/index/MessageListView",
+		  "style": {
+		    "navigationBarTitleText": "消息通知",
+		    "enablePullDownRefresh": true
+		  }
+		},
+		{
+		  "path": "pages/index/ChatDetailView",
+		  "style": {
+		    "navigationBarTitleText": "聊天",
+		    "navigationBarBackgroundColor": "#F4F7FA",
+		    "enablePullDownRefresh": true
+		  }
+		}
 	],
 	"globalStyle": {
 		"navigationBarTextStyle": "black",

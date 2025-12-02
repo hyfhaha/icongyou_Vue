@@ -49,7 +49,7 @@
 						<view class="stat-content">
 							<text class="stat-value">{{ pendingTasksCount }}</text>
 							<text class="stat-label">进行中</text>
-						</view>
+				</view>
 					</view>
 					<view class="stat-item">
 						<view class="stat-icon overdue">
@@ -59,9 +59,9 @@
 							<text class="stat-value">{{ overdueTasksCount }}</text>
 							<text class="stat-label">已逾期</text>
 						</view>
+						</view>
 					</view>
 				</view>
-			</view>
 
       <!-- 任务地图入口 -->
       <view class="entry-card" @click="goTaskMap">
@@ -92,7 +92,7 @@
 			</view>
 
       <!-- 近期任务列表（即使暂无任务也展示提示） -->
-      <view class="card-box">
+			<view class="card-box">
 				<view class="section-header">
 					<view class="header-left">
 						<uni-icons type="flag-filled" size="20" color="#E74C3C"></uni-icons>
@@ -115,14 +115,14 @@
 									{{ formatDeadline(task.deadline) }}
 									<text v-if="task.totalScore" class="task-score"> · {{ task.totalScore }}分</text>
 								</text>
-							</view>
 						</view>
+					</view>
 						<view class="task-item-right">
 							<view class="task-status-badge" :class="task.status">
 								<text>{{ getStatusText(task.status) }}</text>
-							</view>
 						</view>
 					</view>
+				</view>
 				</view>
         <view v-else class="recent-empty">
           <text class="recent-empty-text">近期暂无任务</text>
@@ -234,7 +234,7 @@ const onScrollToLower = () => {
 };
 
 onMounted(() => {
-	if (!currentCourse.value.courseId) {
+  if (!currentCourse.value.courseId) {
 		// 尝试从本地存储恢复课程ID
 		try {
 			const savedCourseId = uni.getStorageSync('currentCourseId');
@@ -244,13 +244,13 @@ onMounted(() => {
 		} catch (e) {
 			console.warn('获取本地课程ID失败', e);
 		}
-	}
+  }
 });
 
 const goBack = () => {
-	const pages = getCurrentPages();
-	if (pages.length > 1) uni.navigateBack();
-	else uni.switchTab({ url: '/pages/index/CourseListView' });
+  const pages = getCurrentPages();
+  if (pages.length > 1) uni.navigateBack();
+  else uni.switchTab({ url: '/pages/index/CourseListView' });
 };
 
 const goTaskMap = () => uni.navigateTo({ url: '/pages/index/TaskKanbanView' });
