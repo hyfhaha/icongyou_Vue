@@ -41,6 +41,27 @@
 				</view>
 			</view>
 
+			<!-- #ifdef APP-PLUS -->
+			<view class="section-card">
+				<text class="section-title">开发配置</text>
+				<view class="setting-item">
+					<view>
+						<text class="setting-label">服务器 IP 地址</text>
+						<text class="setting-desc">真机调试时填写电脑的局域网 IP (例如: 192.168.1.100)</text>
+					</view>
+				</view>
+				<view class="input-wrapper">
+					<input 
+						class="ip-input" 
+						v-model="serverIp" 
+						placeholder="请输入服务器 IP"
+						@blur="saveServerIp"
+					/>
+					<text class="input-hint">当前: {{ currentBaseUrl }}</text>
+				</view>
+			</view>
+			<!-- #endif -->
+			
 			<view class="section-card">
 				<text class="section-title">通用</text>
 				<view class="setting-list">
@@ -79,10 +100,15 @@ const settingsStore = useSettingsStore();
 const authStore = useAuthStore();
 const { preferences } = storeToRefs(settingsStore);
 const cacheSize = ref('0KB');
+const serverIp = ref('');
+const currentBaseUrl = ref('');
 
 onMounted(() => {
 	settingsStore.loadSettings();
     calculateCache();
+	// #ifdef APP-PLUS
+	loadServerIp();
+	// #endif
 });
 
 const goBack = () => uni.navigateBack();
@@ -136,6 +162,39 @@ const checkVersion = () => {
         uni.showToast({ title: '当前已是最新版本', icon: 'none' });
     }, 1000);
 };
+
+// #ifdef APP-PLUS
+// 加载服务器 IP 配置
+const loadServerIp = () => {
+	const savedIp = uni.getStorageSync('devServerIp');
+	if (savedIp) {
+		serverIp.value = savedIp;
+		currentBaseUrl.value = `http://${savedIp}:3000`;
+	} else {
+		currentBaseUrl.value = 'http://localhost:3000 (未配置)';
+	}
+};
+
+// 保存服务器 IP 配置
+const saveServerIp = () => {
+	const ip = serverIp.value.trim();
+	if (ip) {
+		// 简单的 IP 格式验证
+		const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+		if (!ipRegex.test(ip)) {
+			uni.showToast({ title: 'IP 格式不正确', icon: 'none' });
+			return;
+		}
+		uni.setStorageSync('devServerIp', ip);
+		currentBaseUrl.value = `http://${ip}:3000`;
+		uni.showToast({ title: '配置已保存，请重启应用生效', icon: 'success' });
+	} else {
+		uni.removeStorageSync('devServerIp');
+		currentBaseUrl.value = 'http://localhost:3000 (未配置)';
+		uni.showToast({ title: '已清除配置', icon: 'success' });
+	}
+};
+// #endif
 
 const handleLogout = () => {
   uni.showModal({
@@ -291,5 +350,33 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	border: 2rpx solid #FCA5A5;
 	font-size: 30rpx;
 	font-weight: 600;
+}
+
+.input-wrapper {
+	margin-top: 20rpx;
+	padding-top: 20rpx;
+	border-top: 1rpx solid $border-color;
+}
+.ip-input {
+	width: 100%;
+	height: 80rpx;
+	padding: 0 24rpx;
+	border: 2rpx solid $border-color;
+	border-radius: 12rpx;
+	font-size: 28rpx;
+	color: $text-color;
+	background: #F9F9F9;
+	box-sizing: border-box;
+	&:focus {
+		border-color: #4C8AF2;
+		background: #FFFFFF;
+	}
+}
+.input-hint {
+	display: block;
+	margin-top: 12rpx;
+	font-size: 24rpx;
+	color: $text-light;
+	padding-left: 8rpx;
 }
 </style>
