@@ -283,13 +283,21 @@ $shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.1);
 }
 
 .header-sticky {
-	position: sticky;
-	top: 0;
-	z-index: 100;
-	background: rgba(255, 255, 255, 0.95);
-	backdrop-filter: blur(10px);
-	border-bottom: 1rpx solid #E5E7EB;
-	padding: 20rpx 30rpx;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-bottom: 1rpx solid #E5E7EB;
+    
+    /* 1. 先设置左右和底部的 padding */
+    padding-left: 30rpx;
+    padding-right: 30rpx;
+    padding-bottom: 20rpx;
+    
+    /* 2. 单独设置顶部 padding：状态栏高度 + 原有的 20rpx 间距 */
+    /* 注意：必须放在 padding 简写属性之后（如果有的话），或者像这样分开写 */
+    padding-top: calc(var(--status-bar-height) + 20rpx);
 }
 
 .header-content {

@@ -19,7 +19,7 @@ function getBaseUrl() {
   }
   // 如果没有配置，使用默认的服务器 IP
   // 用户可以在设置页面中修改此配置
-  const defaultIp = '10.21.254.173'; // 开发服务器 IP
+  const defaultIp = '192.168.217.56'; // 开发服务器 IP
   console.log('[网络配置] 使用默认服务器 IP:', defaultIp);
   return `http://${defaultIp}:3000`;
   // #endif

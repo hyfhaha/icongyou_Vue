@@ -286,6 +286,7 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	z-index: 50;
 	background: rgba(255, 255, 255, 0.85);
 	backdrop-filter: blur(10px);
+	padding-top: var(--status-bar-height);
 	border-bottom: 1rpx solid $border-color;
 }
 .header-content {

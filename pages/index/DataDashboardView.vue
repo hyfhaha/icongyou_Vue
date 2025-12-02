@@ -665,6 +665,7 @@ $theme-color: #4C8AF2;
 .header-sticky {
 	background: #fff; padding: 0 24rpx; height: 88rpx; display: flex; align-items: center;
 	position: sticky; top: 0; z-index: 50; box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.05);
+	padding-top: var(--status-bar-height);
 }
 .header-content { width: 100%; display: flex; justify-content: space-between; align-items: center; }
 .icon-button { width: 80rpx; height: 80rpx; display: flex; align-items: center; justify-content: center; }

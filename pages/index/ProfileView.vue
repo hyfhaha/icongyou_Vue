@@ -264,6 +264,7 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 .header-bg {
 	background: linear-gradient(135deg, #4C8AF2, #6C5BFF);
 	padding: 60rpx 40rpx 140rpx 40rpx;
+	padding-top: calc(var(--status-bar-height) + 60rpx);
 	border-bottom-left-radius: 40rpx;
 	border-bottom-right-radius: 40rpx;
 }
