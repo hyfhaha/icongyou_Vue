@@ -31,7 +31,15 @@
 				:class="message.role"
 			>
 				<view class="avatar" :class="message.role">
-					{{ message.role === 'user' ? '我' : (message.role === 'ai' ? 'AI' : (message.userName ? message.userName.charAt(0) : '?')) }}
+					<image
+						v-if="message.role === 'user' && userAvatarSrc"
+						:src="userAvatarSrc"
+						class="avatar-img"
+						mode="aspectFill"
+					/>
+					<text v-else>
+						{{ message.role === 'user' ? '我' : (message.role === 'ai' ? 'AI' : (message.userName ? message.userName.charAt(0) : '?')) }}
+					</text>
 				</view>
 				<view class="bubble">
 					<view v-if="message.role === 'reply'" class="reply-header">
@@ -72,20 +80,34 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted } from 'vue';
+import { ref, nextTick, onMounted, computed } from 'vue';
 import { storeToRefs } from 'pinia';
-import { onLoad } from '@dcloudio/uni-app';
+import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app';
 // 引入 Store
 import { useChatStore } from '@/store/chatStore';
 import { useCourseContextStore } from '@/store/courseContextStore';
+import { useAuthStore } from '@/store/authStore';
+import RequestConfig from '@/utils/request';
 
 const chatStore = useChatStore();
 const contextStore = useCourseContextStore();
+const authStore = useAuthStore();
 
 // 1. 获取聊天数据
 const { messages, isTyping } = storeToRefs(chatStore);
 // 2. 获取当前任务上下文 (从 TaskDetailView 进来时会带有 currentTask)
 const { currentTask } = storeToRefs(contextStore);
+
+// 通用头像 URL 处理
+const buildAvatarUrl = (raw) => {
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const base = RequestConfig.baseUrl.replace(/\/$/, '');
+  const path = String(raw).startsWith('/') ? raw : `/${raw}`;
+  return base + path;
+};
+
+const userAvatarSrc = computed(() => buildAvatarUrl(authStore.userInfo.avatarUrl));
 
 const draft = ref('');
 const scrollTarget = ref('');
@@ -121,6 +143,20 @@ onMounted(async () => {
 		storyId.value = currentTask.value.id;
 		chatStore.loadHistory(storyId.value);
 	}
+});
+
+// 下拉刷新：重新加载当前会话历史
+onPullDownRefresh(async () => {
+  try {
+    if (storyId.value) {
+      await chatStore.loadHistory(storyId.value);
+    } else {
+      await chatStore.loadHistory(null);
+    }
+    scrollToBottom();
+  } finally {
+    uni.stopPullDownRefresh();
+  }
 });
 
 const goBack = () => {
@@ -254,6 +290,12 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	font-weight: 600;
 	font-size: 24rpx;
 	flex-shrink: 0;
+	overflow: hidden;
+	.avatar-img {
+		width: 100%;
+		height: 100%;
+		border-radius: 50%;
+	}
 }
 .avatar.user {
 	background: linear-gradient(135deg, #4C8AF2, #6C5BFF);

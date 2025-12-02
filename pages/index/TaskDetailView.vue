@@ -113,19 +113,30 @@
 			<view class="card-box">
 				<view class="card-title-row">
 					<uni-icons type="paperclip" size="20" color="#2ECC71"></uni-icons>
-					<text class="card-title">任务资料 (1)</text>
+					<text class="card-title">
+						任务资料
+						<text v-if="materialList.length"> ({{ materialList.length }})</text>
+					</text>
 				</view>
-				<view class="material-list">
-					<view class="material-item">
+				<view v-if="materialList.length" class="material-list">
+					<view
+						v-for="item in materialList"
+						:key="item.id"
+						class="material-item"
+						@click="handleMaterialClick(item)"
+					>
 						<view class="material-icon-bg">
 							<uni-icons type="download-filled" size="24" color="#4C8AF2"></uni-icons>
 						</view>
 						<view class="material-info">
-							<text class="material-name">项目需求文档.pdf</text>
-							<text class="material-size">2.3 MB</text>
+							<text class="material-name">{{ item.name }}</text>
+							<text class="material-size">{{ item.sizeLabel }}</text>
 						</view>
 						<uni-icons type="right" size="16" color="#AAAAAA" class="material-arrow"></uni-icons>
 					</view>
+				</view>
+				<view v-else class="material-empty">
+					<text>暂无任务资料</text>
 				</view>
 			</view>
 
@@ -235,10 +246,11 @@
 <script setup>
 import { computed, ref, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
-import { onLoad, onShow } from '@dcloudio/uni-app';
+import { onLoad, onShow, onPullDownRefresh } from '@dcloudio/uni-app';
 import { useCourseContextStore } from '@/store/courseContextStore';
 import { useAuthStore } from '@/store/authStore';
 import { getMySubmissions } from '@/api/task';
+import RequestConfig from '@/utils/request';
 
 const contextStore = useCourseContextStore();
 const authStore = useAuthStore();
@@ -325,6 +337,22 @@ const getStatusBadgeClass = (status) => {
 	return map[status] || 'badge-default';
 };
 
+// 任务资料列表（从 currentTask.materials 映射而来）
+const materialList = computed(() => {
+  const list = currentTask.value?.materials || [];
+  return list.map((m, index) => {
+    const name = m.material_name || m.file_name || `资料 ${index + 1}`;
+    const rawPath = m.content || m.url || m.file_name || '';
+    return {
+      id: m.id || index,
+      name,
+      // 原始相对路径或 URL，后续再拼接为完整下载地址
+      originPath: rawPath,
+      sizeLabel: '点击下载'
+    };
+  });
+});
+
 // 加载任务详情
 const loadTaskDetail = async (id) => {
     if (!id) {
@@ -383,6 +411,20 @@ onShow(() => {
     if (taskId.value) {
         loadTaskDetail(taskId.value);
     }
+});
+
+// 下拉刷新：重新加载当前任务详情
+onPullDownRefresh(async () => {
+  try {
+    if (taskId.value) {
+      await loadTaskDetail(taskId.value);
+    } else if (currentTask.value?.id) {
+      taskId.value = currentTask.value.id;
+      await loadTaskDetail(taskId.value);
+    }
+  } finally {
+    uni.stopPullDownRefresh();
+  }
 });
 
 onMounted(() => {
@@ -511,6 +553,16 @@ const getFileUrlByIndex = (fileUrls, index) => {
 	if (!fileUrls) return '';
 	const urls = fileUrls.split('|').map(u => u.trim()).filter(Boolean);
 	return urls[index] || urls[0] || '';
+};
+
+// 构造完整的文件 URL（用于任务资料等场景）
+const buildAbsoluteUrl = (path) => {
+	if (!path) return '';
+	// 如果已经是完整 http(s) 地址，则直接返回
+	if (/^https?:\/\//i.test(path)) return path;
+	const base = RequestConfig.baseUrl.replace(/\/$/, '');
+	const p = String(path).startsWith('/') ? path : `/${path}`;
+	return base + p;
 };
 
 // 给下载链接追加时间戳，避免 304 缓存命中
@@ -665,6 +717,63 @@ const handleHistoryFileClick = (submission, fileIndex) => {
 		},
 		fail: () => {
 			console.error('[历史提交][downloadFile] 请求失败');
+			uni.hideLoading();
+			uni.showToast({ title: '下载失败', icon: 'none' });
+		}
+	});
+};
+
+// 点击任务资料，按平台触发下载/打开
+const handleMaterialClick = (material) => {
+	if (!material) return;
+	const rawFileName = material.name || '任务资料';
+	const fileName = sanitizeFileName(rawFileName);
+	const originUrl = buildAbsoluteUrl(material.originPath || `/uploads/materials/${fileName}`);
+	const fileUrl = buildDownloadUrl(originUrl);
+
+	if (!fileUrl) {
+		uni.showToast({ title: '文件地址不存在', icon: 'none' });
+		return;
+	}
+
+	// App 端：下载到 @downloads
+	/* #ifdef APP-PLUS */
+	downloadToAppDownloads(fileUrl, fileName);
+	return;
+	/* #endif */
+
+	// H5：触发浏览器下载
+	/* #ifdef H5 */
+	downloadInBrowser(fileUrl, fileName);
+	return;
+	/* #endif */
+
+	// 其他平台：使用 downloadFile + openDocument 打开
+	uni.showLoading({ title: '正在下载...' });
+	uni.downloadFile({
+		url: fileUrl,
+		success: (res) => {
+			if (res.statusCode === 200) {
+				const extMatch = rawFileName.match(/\.([^.]+)$/);
+				const fileType = extMatch ? extMatch[1].toLowerCase() : '';
+				uni.openDocument({
+					filePath: res.tempFilePath,
+					fileType,
+					showMenu: true,
+					success: () => {
+						uni.hideLoading();
+					},
+					fail: () => {
+						uni.hideLoading();
+						uni.showToast({ title: '打开失败，请稍后重试', icon: 'none' });
+					}
+				});
+			} else {
+				uni.hideLoading();
+				uni.showToast({ title: '下载失败', icon: 'none' });
+			}
+		},
+		fail: () => {
 			uni.hideLoading();
 			uni.showToast({ title: '下载失败', icon: 'none' });
 		}
@@ -966,6 +1075,12 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	.material-arrow {
 		flex-shrink: 0;
 	}
+}
+
+.material-empty {
+	padding: 10rpx 0;
+	font-size: 26rpx;
+	color: $text-light;
 }
 
 .button-group {

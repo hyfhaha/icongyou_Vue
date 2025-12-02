@@ -212,7 +212,13 @@
 							<view v-for="(m, index) in sortedMembers" :key="m.id" class="member-item">
 								<view class="member-rank">{{ index + 1 }}</view>
 							<view class="m-avatar" :class="{ leader: m.isLeader }">
-									<text>{{ (m.name || '').charAt(0) || '?' }}</text>
+								<image
+									v-if="buildAvatarUrl(m.avatarUrl)"
+									:src="buildAvatarUrl(m.avatarUrl)"
+									class="m-avatar-img"
+									mode="aspectFill"
+								/>
+									<text v-else>{{ (m.name || '').charAt(0) || '?' }}</text>
 									<view v-if="m.isLeader" class="leader-crown">👑</view>
 							</view>
 							<view class="m-info">
@@ -291,11 +297,21 @@ import { onShow, onPullDownRefresh } from '@dcloudio/uni-app';
 // 引入两个 Store
 import { useAuthStore } from '@/store/authStore';
 import { useCourseContextStore } from '@/store/courseContextStore';
+import RequestConfig from '@/utils/request';
 
 const activeTab = ref('personal');
 
 const authStore = useAuthStore();
 const contextStore = useCourseContextStore();
+
+// 通用头像 URL 处理
+const buildAvatarUrl = (raw) => {
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const base = RequestConfig.baseUrl.replace(/\/$/, '');
+  const path = String(raw).startsWith('/') ? raw : `/${raw}`;
+  return base + path;
+};
 
 // 解构数据
 const { personalData, abilityDimensions, myTeam, teamMembers, currentCourseId, taskNodes, currentCourse } = storeToRefs(contextStore);
@@ -965,8 +981,8 @@ $theme-color: #4C8AF2;
 	margin-right: 16rpx;
 }
 .m-avatar {
-	width: 88rpx; 
-	height: 88rpx; 
+	width: 64rpx; 
+	height: 64rpx; 
 	background: #E0E7FF; 
 	color: $theme-color; 
 	border-radius: 50%;
@@ -974,18 +990,24 @@ $theme-color: #4C8AF2;
 	align-items: center; 
 	justify-content: center; 
 	font-weight: bold; 
-	font-size: 32rpx;
+	font-size: 26rpx;
 	margin-right: 20rpx;
 	position: relative;
+	overflow: hidden;
 	&.leader { 
 		background: linear-gradient(135deg, #F9D423, #F97316); 
 		color: white; 
 	}
+	.m-avatar-img {
+		width: 100%;
+		height: 100%;
+		border-radius: 50%;
+	}
 	.leader-crown {
 		position: absolute;
-		top: -8rpx;
-		right: -8rpx;
-		font-size: 24rpx;
+		top: -6rpx;
+		right: -6rpx;
+		font-size: 20rpx;
 	}
 }
 .m-info { 

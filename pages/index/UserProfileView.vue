@@ -15,8 +15,8 @@
 				<text class="label">头像</text>
 				<view class="avatar-box">
 					<image 
-						v-if="userInfo.avatarUrl" 
-						:src="userInfo.avatarUrl" 
+						v-if="avatarSrc" 
+						:src="avatarSrc" 
 						class="avatar-img" 
 						mode="aspectFill"
 					/>
@@ -73,9 +73,23 @@ import { computed } from 'vue';
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app';
 import { storeToRefs } from 'pinia';
 import { useAuthStore } from '@/store/authStore';
+import RequestConfig from '@/utils/request';
 
 const authStore = useAuthStore();
 const { userInfo } = storeToRefs(authStore);
+
+// 头像地址处理：后端返回 /uploads/... 时，拼接服务器 BaseURL
+const avatarSrc = computed(() => {
+  const raw = userInfo.value?.avatarUrl;
+  if (!raw) return '';
+  // 已经是完整 http(s) 地址，直接使用
+  if (/^https?:\/\//i.test(raw)) {
+    return raw;
+  }
+  const base = RequestConfig.baseUrl.replace(/\/$/, '');
+  const path = String(raw).startsWith('/') ? raw : `/${raw}`;
+  return base + path;
+});
 
 const jobNumberDisplay = computed(() => userInfo.value.jobNumber || userInfo.value.job_number || '--');
 const phoneDisplay = computed(() => userInfo.value.phoneNumber || userInfo.value.phone_number || userInfo.value.mobile || '未提供');

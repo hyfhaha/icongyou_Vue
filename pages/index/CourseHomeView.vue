@@ -143,6 +143,7 @@
 <script setup>
 import { computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
+import { onPullDownRefresh } from '@dcloudio/uni-app';
 import { useCourseContextStore } from '@/store/courseContextStore';
 
 const contextStore = useCourseContextStore();
@@ -244,6 +245,29 @@ onMounted(() => {
 		} catch (e) {
 			console.warn('获取本地课程ID失败', e);
 		}
+  }
+});
+
+// 下拉刷新：重新初始化当前课程上下文并停止刷新动画
+onPullDownRefresh(async () => {
+  try {
+    let courseId = currentCourse.value.courseId;
+    if (!courseId) {
+      try {
+        const savedCourseId = uni.getStorageSync('currentCourseId');
+        if (savedCourseId) {
+          courseId = savedCourseId;
+        }
+      } catch (e) {
+        console.warn('下拉刷新获取本地课程ID失败', e);
+      }
+    }
+
+    if (courseId) {
+      await contextStore.initCourseContext(courseId);
+    }
+  } finally {
+    uni.stopPullDownRefresh();
   }
 });
 

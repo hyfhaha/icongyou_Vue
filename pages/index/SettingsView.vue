@@ -93,6 +93,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
+import { onPullDownRefresh } from '@dcloudio/uni-app';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useAuthStore } from '@/store/authStore';
 
@@ -103,12 +104,16 @@ const cacheSize = ref('0KB');
 const serverIp = ref('');
 const currentBaseUrl = ref('');
 
+const initSettingsPage = () => {
+  settingsStore.loadSettings();
+  calculateCache();
+  // #ifdef APP-PLUS
+  loadServerIp();
+  // #endif
+};
+
 onMounted(() => {
-	settingsStore.loadSettings();
-    calculateCache();
-	// #ifdef APP-PLUS
-	loadServerIp();
-	// #endif
+	initSettingsPage();
 });
 
 const goBack = () => uni.navigateBack();
@@ -208,6 +213,15 @@ const handleLogout = () => {
     }
   });
 };
+
+// 下拉刷新：重新加载设置与缓存信息
+onPullDownRefresh(() => {
+  try {
+    initSettingsPage();
+  } finally {
+    uni.stopPullDownRefresh();
+  }
+});
 </script>
 
 <style lang="scss" scoped>

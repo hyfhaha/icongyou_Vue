@@ -23,7 +23,13 @@
         @click="goToChat(item)"
       >
         <view class="avatar-box">
-          <text class="avatar-text">{{ item.partnerName ? item.partnerName.charAt(0) : '?' }}</text>
+          <image
+            v-if="buildAvatarUrl(item.avatarUrl)"
+            :src="buildAvatarUrl(item.avatarUrl)"
+            class="avatar-img"
+            mode="aspectFill"
+          />
+          <text v-else class="avatar-text">{{ item.partnerName ? item.partnerName.charAt(0) : '?' }}</text>
           <view v-if="item.unreadCount > 0" class="badge">
             <text>{{ item.unreadCount > 99 ? '99+' : item.unreadCount }}</text>
           </view>
@@ -48,9 +54,18 @@ import { ref } from 'vue';
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app';
 // 确保 api 路径正确
 import { getConversations } from '@/api/message';
+import RequestConfig from '@/utils/request';
 
 const list = ref([]);
 const loading = ref(true);
+
+const buildAvatarUrl = (raw) => {
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const base = RequestConfig.baseUrl.replace(/\/$/, '');
+  const path = String(raw).startsWith('/') ? raw : `/${raw}`;
+  return base + path;
+};
 
 // [新增] 返回上一页
 const goBack = () => {
@@ -72,9 +87,10 @@ const loadData = async () => {
 };
 
 const goToChat = (item) => {
-  // 路径已更新为 pages/index/ChatDetailView
+  // 跳转到会话详情，同时把对方头像原始字段一并传过去（用于显示真实头像）
+  const avatarRaw = encodeURIComponent(item.avatarUrl || '');
   uni.navigateTo({
-    url: `/pages/index/ChatDetailView?partnerId=${item.partnerId}&partnerName=${item.partnerName}`
+    url: `/pages/index/ChatDetailView?partnerId=${item.partnerId}&partnerName=${item.partnerName}&partnerAvatar=${avatarRaw}`
   });
 };
 
@@ -171,6 +187,13 @@ onPullDownRefresh(() => {
   align-items: center;
   justify-content: center;
   margin-right: 24rpx;
+  overflow: hidden;
+  
+  .avatar-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 20rpx;
+  }
   
   .avatar-text {
     color: white;

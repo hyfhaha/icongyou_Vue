@@ -145,15 +145,15 @@
 			{
 				"pagePath": "pages/index/CourseListView",
 				"text": "课程",
-				"iconPath": "static/tabs/courses.png",
-				"selectedIconPath": "static/tabs/courses_active.png"
+				"iconPath": "static/课程.png",
+				"selectedIconPath": "static/课程.png"
 			},
 
 			{
 				"pagePath": "pages/index/ProfileView",
 				"text": "我的",
-				"iconPath": "static/tabs/profile.png",
-				"selectedIconPath": "static/tabs/profile_active.png"
+				"iconPath": "static/我的.png",
+				"selectedIconPath": "static/我的.png"
 			}
 		]
 	},

@@ -56,6 +56,7 @@
 
 <script setup>
 import { computed } from 'vue';
+import { onPullDownRefresh } from '@dcloudio/uni-app';
 import { useAuthStore } from '@/store/authStore';
 
 const authStore = useAuthStore();
@@ -99,6 +100,11 @@ const achievementList = computed(() => {
       isUnlocked: rule.current >= rule.target
     };
   });
+});
+
+// 下拉刷新：成就是纯前端计算，这里只负责结束刷新动画
+onPullDownRefresh(() => {
+  uni.stopPullDownRefresh();
 });
 </script>
 

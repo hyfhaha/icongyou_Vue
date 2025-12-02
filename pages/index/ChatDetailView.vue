@@ -25,17 +25,37 @@
           class="msg-row" 
           :class="{ 'msg-mine': msg.fromMe }"
         >
-          <view v-if="!msg.fromMe" class="avatar other">
-            {{ partnerName.charAt(0) }}
-          </view>
-          
-          <view class="bubble">
-            <text class="msg-text">{{ msg.content }}</text>
-          </view>
-          
-          <view v-if="msg.fromMe" class="avatar mine">
-            我
-          </view>
+          <!-- 对方消息：头像在左，气泡在右 -->
+          <template v-if="!msg.fromMe">
+            <view class="avatar other">
+              <image
+                v-if="partnerAvatarSrc"
+                :src="partnerAvatarSrc"
+                class="avatar-img"
+                mode="aspectFill"
+              />
+              <text v-else>{{ partnerName.charAt(0) }}</text>
+            </view>
+            <view class="bubble other-bubble">
+              <text class="msg-text">{{ msg.content }}</text>
+            </view>
+          </template>
+
+          <!-- 我的消息：气泡在左，头像在右 -->
+          <template v-else>
+            <view class="bubble mine-bubble">
+              <text class="msg-text">{{ msg.content }}</text>
+            </view>
+            <view class="avatar mine">
+              <image
+                v-if="myAvatarSrc"
+                :src="myAvatarSrc"
+                class="avatar-img"
+                mode="aspectFill"
+              />
+              <text v-else>我</text>
+            </view>
+          </template>
         </view>
       </view>
       <view class="placeholder-footer"></view>
@@ -57,15 +77,32 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue';
+import { ref, nextTick, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { getMessagesWithUser, sendMessage } from '@/api/message';
+import { useAuthStore } from '@/store/authStore';
+import RequestConfig from '@/utils/request';
+
+const authStore = useAuthStore();
 
 const partnerId = ref(null);
 const partnerName = ref('聊天');
+const partnerAvatarRaw = ref('');
 const messages = ref([]);
 const inputContent = ref('');
 const scrollTop = ref(0);
+
+// 通用头像 URL 处理
+const buildAvatarUrl = (raw) => {
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const base = RequestConfig.baseUrl.replace(/\/$/, '');
+  const path = String(raw).startsWith('/') ? raw : `/${raw}`;
+  return base + path;
+};
+
+const partnerAvatarSrc = computed(() => buildAvatarUrl(partnerAvatarRaw.value));
+const myAvatarSrc = computed(() => buildAvatarUrl(authStore.userInfo.avatarUrl));
 
 // [新增] 返回上一页
 const goBack = () => {
@@ -118,6 +155,8 @@ onLoad((options) => {
   if (options.partnerId) {
     partnerId.value = Number(options.partnerId);
     partnerName.value = options.partnerName || '用户';
+    // 从路由参数中接收对方头像原始路径
+    partnerAvatarRaw.value = decodeURIComponent(options.partnerAvatar || '');
     loadMessages();
   }
 });
@@ -175,20 +214,27 @@ onLoad((options) => {
   margin-bottom: 30rpx;
   
   &.msg-mine {
-    flex-direction: row-reverse;
+    justify-content: flex-end;
   }
 }
 
 .avatar {
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: 16rpx;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32rpx;
+  font-size: 26rpx;
   color: white;
   flex-shrink: 0;
+  overflow: hidden;
+
+  .avatar-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+  }
   
   &.other {
     background: #6C5BFF;
@@ -215,8 +261,12 @@ onLoad((options) => {
   }
 }
 
-.msg-mine .bubble {
-  background: #D1E8FF; 
+.other-bubble {
+  background: #FFFFFF;
+}
+
+.mine-bubble {
+  background: #D1E8FF;
 }
 
 .placeholder-footer {

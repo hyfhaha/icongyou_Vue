@@ -141,6 +141,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { storeToRefs } from 'pinia';
+import { onPullDownRefresh } from '@dcloudio/uni-app';
 import { useCourseContextStore } from '@/store/courseContextStore';
 import { useSubmissionStore } from '@/store/submissionStore';
 
@@ -219,6 +220,16 @@ onMounted(() => {
     calculateCountdown();
     // 每秒更新一次倒计时
     countdownInterval = setInterval(calculateCountdown, 1000);
+});
+
+// 下拉刷新：重新计算倒计时和贡献度分配
+onPullDownRefresh(() => {
+  try {
+    initTeamContribution();
+    calculateCountdown();
+  } finally {
+    uni.stopPullDownRefresh();
+  }
 });
 
 // [新增] 页面卸载时，清空已选择的文件，防止带到其他任务

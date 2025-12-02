@@ -45,7 +45,14 @@
 </template>
 
 <script setup>
+import { onPullDownRefresh } from '@dcloudio/uni-app';
+
 const goBack = () => uni.navigateBack();
+
+// 下拉刷新：静态帮助页，仅结束刷新动画
+onPullDownRefresh(() => {
+  uni.stopPullDownRefresh();
+});
 </script>
 
 <style scoped>

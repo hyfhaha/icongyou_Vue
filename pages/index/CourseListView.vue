@@ -23,7 +23,13 @@
 						<view class="dot"></view>
 					</view>
 					<view class="profile-avatar" @click="handleGoProfile">
-					    <text class="profile-initial">{{ userInfo.nickname ? userInfo.nickname.charAt(0) : '未' }}</text>
+						<image
+							v-if="profileAvatarSrc"
+							:src="profileAvatarSrc"
+							class="profile-avatar-img"
+							mode="aspectFill"
+						/>
+					    <text v-else class="profile-initial">{{ userInfo.nickname ? userInfo.nickname.charAt(0) : '未' }}</text>
 					</view>
 				</view>
 			</view>
@@ -147,6 +153,17 @@ const { userInfo } = storeToRefs(authStore);
 
 const searchQuery = ref('');
 const activeFilter = ref(0); // 0=全部
+
+// 通用头像 URL 处理：支持后端返回 /uploads/... 相对路径
+const buildAvatarUrl = (raw) => {
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const base = RequestConfig.baseUrl.replace(/\/$/, '');
+  const path = String(raw).startsWith('/') ? raw : `/${raw}`;
+  return base + path;
+};
+
+const profileAvatarSrc = computed(() => buildAvatarUrl(userInfo.value?.avatarUrl));
 
 const filters = [
   { value: 0, label: '全部' },
@@ -357,6 +374,12 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		overflow: hidden;
+		.profile-avatar-img {
+			width: 100%;
+			height: 100%;
+			border-radius: 20rpx;
+		}
 		.profile-initial {
 			color: white;
 			font-size: 32rpx;

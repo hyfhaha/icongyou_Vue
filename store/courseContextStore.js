@@ -279,7 +279,9 @@ export const useCourseContextStore = defineStore('courseContext', () => {
           contribution: member.contributionRate != null
             ? Math.round(member.contributionRate * 100)
             : member.contribution ?? 0,
-          score: member.score ?? 0
+          score: member.score ?? 0,
+          // 头像（如果后端提供）
+          avatarUrl: member.avatarUrl || member.avatar_url || ''
         };
       });
     } catch (error) {

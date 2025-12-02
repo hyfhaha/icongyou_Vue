@@ -129,15 +129,39 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { storeToRefs } from 'pinia';
+import { onPullDownRefresh } from '@dcloudio/uni-app';
 import { useCourseContextStore } from '@/store/courseContextStore';
 
 const contextStore = useCourseContextStore();
-const { taskNodes, mapMetaData } = storeToRefs(contextStore);
+const { taskNodes, mapMetaData, currentCourseId } = storeToRefs(contextStore);
 
 const selectedTask = ref(null);
 const touchStart = ref({ x: 0, y: 0 });
 
 const goBack = () => uni.navigateBack();
+
+// 下拉刷新：重新初始化课程上下文，刷新任务地图
+onPullDownRefresh(async () => {
+  try {
+    let courseId = currentCourseId.value;
+    if (!courseId) {
+      try {
+        const savedCourseId = uni.getStorageSync('currentCourseId');
+        if (savedCourseId) {
+          courseId = savedCourseId;
+        }
+      } catch (e) {
+        console.warn('TaskKanban 下拉刷新读取课程ID失败', e);
+      }
+    }
+
+    if (courseId) {
+      await contextStore.initCourseContext(courseId);
+    }
+  } finally {
+    uni.stopPullDownRefresh();
+  }
+});
 
 // 智能判断模式
 const isCompactMode = computed(() => {

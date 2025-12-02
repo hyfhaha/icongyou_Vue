@@ -79,7 +79,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
-import { onLoad } from '@dcloudio/uni-app';
+import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app';
 import { useCourseContextStore } from '@/store/courseContextStore';
 
 const contextStore = useCourseContextStore();
@@ -98,7 +98,7 @@ onLoad((options) => {
 	}
 });
 
-onMounted(async () => {
+const loadExcellentWorks = async () => {
 	loading.value = true;
 	try {
 		// 如果URL参数中有taskId，尝试加载任务详情
@@ -121,6 +121,19 @@ onMounted(async () => {
 	} finally {
 		loading.value = false;
 	}
+};
+
+onMounted(async () => {
+	await loadExcellentWorks();
+});
+
+// 下拉刷新：重新加载优秀作业列表
+onPullDownRefresh(async () => {
+  try {
+    await loadExcellentWorks();
+  } finally {
+    uni.stopPullDownRefresh();
+  }
 });
 
 const goBack = () => {
