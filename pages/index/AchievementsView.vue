@@ -112,6 +112,7 @@ const achievementList = computed(() => {
 
 .header-area {
   background: linear-gradient(135deg, #F39C12, #F1C40F);
+  padding-top: var(--status-bar-height);
   padding: 0 40rpx 80rpx 40rpx; /* 底部留白给卡片上浮 */
   color: #fff;
   /* 适配刘海屏顶部安全距离，或者简单的给一个 paddingTop */

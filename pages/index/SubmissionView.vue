@@ -442,6 +442,7 @@ $border-color: #EAEAEA;
 }
 .header-sticky {
 	position: sticky; top: 0; z-index: 20; background: #FFFFFF; box-shadow: $shadow; padding: 20rpx;
+	padding-top: var(--status-bar-height);
 }
 .header-content {
 	display: flex; align-items: center; justify-content: space-between; height: 88rpx;

@@ -115,7 +115,7 @@ const goBack = () => {
 $bg-color: #F4F7FA;
 $card-bg: #FFFFFF;
 .user-profile-page { height: 100vh; background: $bg-color; }
-.header-sticky { background: #fff; padding: 20rpx; }
+.header-sticky { background: #fff; padding: 20rpx; padding-top: var(--status-bar-height);}
 .header-content { display: flex; justify-content: space-between; align-items: center; height: 88rpx; }
 .header-title { font-weight: bold; font-size: 32rpx; }
 .icon-button { width: 80rpx; height: 80rpx; display: flex; align-items: center; justify-content: center; }

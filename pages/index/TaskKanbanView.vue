@@ -301,6 +301,7 @@ $grid-line: #E5E7EB;
 .header-sticky {
 	position: sticky; top: 0; z-index: 50; background: #fff;
 	border-bottom: 1rpx solid $line-color;
+	padding-top: var(--status-bar-height);
 }
 .header-content {
 	height: 88rpx; display: flex; justify-content: space-between; align-items: center; padding: 0 20rpx;

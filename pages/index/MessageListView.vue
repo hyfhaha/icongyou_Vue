@@ -104,6 +104,7 @@ onPullDownRefresh(() => {
   top: 0;
   z-index: 20;
   background: #FFFFFF;
+  padding-top: var(--status-bar-height);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 .header-content {
