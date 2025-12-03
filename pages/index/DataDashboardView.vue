@@ -158,16 +158,37 @@
 
 			<view v-if="activeTab === 'team'" class="tab-content fade-in">
 				<!-- 未加入团队提示 -->
-				<view v-if="!myTeam.id" class="empty-state">
-					<uni-icons type="info" size="48" color="#999"></uni-icons>
-					<text class="empty-text">您尚未加入任何团队</text>
-					<text class="empty-hint">请先加入团队以查看团队数据</text>
+				<view v-if="!myTeam.id" class="team-action-container">
+				    <view class="empty-icon-wrapper">
+				        <uni-icons type="staff" size="64" color="#BDC3C7"></uni-icons>
+				    </view>
+				    <text class="empty-title">您尚未加入任何团队</text>
+				    <text class="empty-desc">加入团队与伙伴并肩作战，或创建新团队成为领袖</text>
+				        
+				    <view class="action-buttons">
+				        <button class="btn-create" @click="handleCreateTeam">
+				            <uni-icons type="plus" size="20" color="#FFFFFF"></uni-icons>
+				            <text>创建团队</text>
+				        </button>
+				         <button class="btn-join" @click="handleJoinTeam">
+				            <uni-icons type="search" size="20" color="#4C8AF2"></uni-icons>
+				            <text>加入团队</text>
+				        </button>
+				    </view>
 				</view>
 
 				<!-- 团队数据 -->
 				<template v-else>
 					<!-- 团队概览卡片 -->
 				<view class="team-header-card">
+					<view class="invite-code-box" v-if="myTeam.id">
+					    <text class="invite-label">团队邀请码：</text>
+					    <text class="invite-value">{{ myTeam.groupCode || '正在加载...' }}</text>
+					    <view class="copy-btn" @click="copyCode(myTeam.groupCode)">
+					        <uni-icons type="paperclip" size="14" color="#4C8AF2"></uni-icons>
+					        <text>复制</text>
+					    </view>
+					</view>
 					<view class="team-top">
 							<view class="team-info-left">
 								<text class="team-name">{{ myTeam.groupName || '未命名团队' }}</text>
@@ -375,6 +396,28 @@ const persistActiveTab = () => {
   } catch (e) {
     console.warn('缓存 tab 失败', e);
   }
+};
+
+const copyCode = (code) => {
+    if (!code) return;
+    uni.setClipboardData({
+        data: code,
+        success: () => uni.showToast({ title: '已复制', icon: 'none' })
+    });
+};
+
+const handleCreateTeam = () => {
+  // 跳转到团队操作页，模式为 create
+  uni.navigateTo({ 
+    url: `/pages/index/TeamActionView?mode=create&courseId=${currentCourseId.value}` 
+  });
+};
+
+const handleJoinTeam = () => {
+  // 跳转到团队操作页，模式为 join
+  uni.navigateTo({ 
+    url: `/pages/index/TeamActionView?mode=join&courseId=${currentCourseId.value}` 
+  });
 };
 
 const jobNumberDisplay = computed(() => authStore.userInfo.jobNumber || authStore.userInfo.job_number || '--');
@@ -1146,5 +1189,109 @@ $theme-color: #4C8AF2;
 		font-size: 26rpx;
 		color: #888;
 	}
+}
+
+/* DataDashboardView.vue style */
+
+.team-action-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 100rpx 40rpx;
+    background: #FFFFFF;
+    border-radius: 24rpx;
+    margin-top: 30rpx;
+    box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05);
+}
+
+.empty-icon-wrapper {
+    width: 160rpx;
+    height: 160rpx;
+    background: #F5F7FA;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 30rpx;
+}
+
+.empty-title {
+    font-size: 36rpx;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 16rpx;
+}
+
+.empty-desc {
+    font-size: 26rpx;
+    color: #888;
+    text-align: center;
+    margin-bottom: 60rpx;
+    max-width: 80%;
+}
+
+.action-buttons {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 30rpx;
+}
+
+.btn-create {
+    width: 100%;
+    height: 96rpx;
+    background: linear-gradient(135deg, #4C8AF2, #6C5BFF);
+    border-radius: 48rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12rpx;
+    color: white;
+    font-size: 32rpx;
+    font-weight: bold;
+    box-shadow: 0 8rpx 20rpx rgba(76, 138, 242, 0.3);
+    &:active { opacity: 0.9; transform: scale(0.98); }
+}
+
+.btn-join {
+    width: 100%;
+    height: 96rpx;
+    background: #FFFFFF;
+    border: 2rpx solid #4C8AF2;
+    border-radius: 48rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12rpx;
+    color: #4C8AF2;
+    font-size: 32rpx;
+    font-weight: bold;
+    &:active { background: #F0F7FF; }
+}
+
+.invite-code-box {
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(5px);
+    border-radius: 12rpx;
+    padding: 12rpx 20rpx;
+    display: flex;
+    align-items: center;
+    margin-bottom: 24rpx; /* 放在统计行上面 */
+    gap: 12rpx;
+}
+.invite-label { font-size: 24rpx; opacity: 0.9; color: white; }
+.invite-value { font-size: 32rpx; font-weight: bold; letter-spacing: 2rpx; flex: 1; color: white; font-family: monospace; }
+.copy-btn {
+    background: white;
+    padding: 6rpx 16rpx;
+    border-radius: 24rpx;
+    display: flex;
+    align-items: center;
+    gap: 6rpx;
+    font-size: 22rpx;
+    color: $theme-color;
+    font-weight: bold;
+    &:active { opacity: 0.8; }
 }
 </style>

@@ -90,7 +90,20 @@
 					<uni-icons type="right" size="20" color="#999"></uni-icons>
 				</view>
 			</view>
-
+		<view v-else class="team-card empty" @click="goTeamDashboard">
+		    <view class="team-header">
+		        <view class="team-info">
+		            <view class="team-icon-wrapper empty-icon">
+		                <uni-icons type="staff" size="28" color="#BDC3C7"></uni-icons>
+		            </view>
+		            <view class="team-details">
+		                <text class="team-name" style="color: #666;">暂未加入团队</text>
+		                <text class="team-meta">点击创建或加入团队</text>
+		            </view>
+		        </view>
+		        <uni-icons type="right" size="20" color="#999"></uni-icons>
+		    </view>
+		</view>
       <!-- 近期任务列表（即使暂无任务也展示提示） -->
 			<view class="card-box">
 				<view class="section-header">
@@ -525,6 +538,17 @@ $shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.1);
 	align-items: center;
 	justify-content: center;
 	box-shadow: 0 4px 12px rgba(46, 204, 113, 0.3);
+}
+
+.team-icon-wrapper.empty-icon {
+    background: #F0F2F5; /* 灰色背景 */
+    box-shadow: none;
+}
+
+/* 可以给未加入的卡片加个虚线边框或其他样式区别 */
+.team-card.empty {
+    border: 2rpx dashed #E0E0E0;
+    background: #FAFAFA;
 }
 
 .team-details {

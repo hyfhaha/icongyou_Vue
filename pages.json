@@ -127,6 +127,13 @@
 		    "navigationBarBackgroundColor": "#F4F7FA",
 		    "enablePullDownRefresh": true
 		  }
+		},
+		{
+		    "path": "pages/index/TeamActionView",
+		    "style": {
+		        "navigationStyle": "custom",
+				"enablePullDownRefresh": true
+		    }
 		}
 	],
 	"globalStyle": {

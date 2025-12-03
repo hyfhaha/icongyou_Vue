@@ -263,6 +263,7 @@ export const useCourseContextStore = defineStore('courseContext', () => {
         groupName: detailTeam.groupName || target.groupName,
         totalScore: detailTeam.totalScore ?? target.score ?? target.totalScore ?? 0,
         rank: detailTeam.rank ?? null,
+		groupCode: detailTeam.groupCode || detailTeam.group_code || '',
         rankTotal: detailTeam.rankTotal ?? null
       };
       teamMembers.value = (detail?.members || []).map((member) => {
@@ -517,74 +518,74 @@ export const useCourseContextStore = defineStore('courseContext', () => {
     }
   };
 
-  const checkSubmissionPermission = () => {
-    // 如果后端返回了权限信息，直接使用
-    if (currentTask.value?.permission) {
-      const permission = currentTask.value.permission;
-      return {
-        allowed: permission.allowed !== false,
-        reason: permission.reason || '',
-        teamRequired: !!permission.teamRequired,
-        onlyLeaderCanSubmit: !!permission.onlyLeaderCanSubmit
-      };
-    }
-    
-    // 如果没有任务信息，返回不允许
+const checkSubmissionPermission = () => {
+    // 1. 【基础检查】任务信息加载中
     if (!currentTask.value || !currentTask.value.id) {
-      return { allowed: false, reason: '任务信息未加载' };
+      return { allowed: false, reason: '任务信息加载中...' };
     }
+
+    // 2. 【新增 - 严谨性】检查提交次数限制 (限制为 1 次)
+    // 只要 myWork 存在，说明已经有过提交记录
+    if (currentTask.value.myWork) {
+       return { allowed: false, reason: '您已提交过作业，无法重复提交' };
+    }
+
+    // 3. 【新增 - 严谨性】检查是否逾期 (时间限制)
+    if (currentTask.value.deadline) {
+      const now = new Date().getTime();
+      const end = new Date(currentTask.value.deadline).getTime();
+      // 如果 deadline 解析有效且当前时间已过
+      if (!isNaN(end) && now > end) {
+        return { allowed: false, reason: '任务已截止，无法提交' };
+      }
+    }
+
+    // 4. 【身份检查】检查团队与身份权限
+    // 优先使用后端返回的 permission 字段 (后端算得更准)
+    if (currentTask.value.permission) {
+      const perm = currentTask.value.permission;
+      // 注意：这里只处理 allowed 为 false 的情况
+      // 如果后端说 allowed=true，我们已经在上面过了时间/次数检查，可以直接信赖
+      if (perm.allowed === false) {
+        return {
+          allowed: false,
+          reason: perm.reason || '无提交权限',
+          teamRequired: !!perm.teamRequired,
+          onlyLeaderCanSubmit: !!perm.onlyLeaderCanSubmit
+        };
+      }
+    } 
     
+    // 如果后端没返回 permission (兜底前端计算)
+    // 这里的逻辑和你原来的代码一致，用于判断团队和队长
     const storyType = currentTask.value.storyType ?? 1;
     const currentUserJobNumber = authStore.userInfo.jobNumber;
-    
-    console.log('🔍 检查提交权限:', {
-      storyType,
-      currentUserJobNumber,
-      teamMembersCount: teamMembers.value.length,
-      myTeamId: myTeam.value.id,
-      teamMembers: teamMembers.value.map(m => ({ id: m.id, studentId: m.studentId, isLeader: m.isLeader }))
-    });
-    
-    // 个人任务（storyType === 1），不需要团队
-    if (storyType === 1) {
-      return { allowed: true, reason: '' };
-    }
-    
-    // 团队任务（storyType === 2 或 3），需要检查团队信息
+
+    // 4.1 团队任务检查
     if (storyType === 2 || storyType === 3) {
-      // 检查是否有团队
+      // A. 检查是否加入团队
       if (!myTeam.value.id) {
-        console.warn('⚠️ 未找到团队信息');
         return { allowed: false, reason: '未加入团队，无法提交团队任务' };
       }
-      
-      // 检查用户是否在团队成员列表中
+
+      // B. 检查是否是团队成员
       const myRole = teamMembers.value.find((member) => {
-        // 兼容多种匹配方式
         const matchByStudentId = member.studentId && String(member.studentId) === String(currentUserJobNumber);
         const matchById = member.id && String(member.id) === String(authStore.userInfo.id);
         return matchByStudentId || matchById;
       });
-      
+
       if (!myRole) {
-        console.warn('⚠️ 用户不在团队成员列表中:', {
-          currentUserJobNumber,
-          userId: authStore.userInfo.id,
-          teamMembers: teamMembers.value
-        });
         return { allowed: false, reason: '您不是该团队的成员' };
       }
-      
-      // 团队任务类型 2：仅队长可提交
+
+      // C. 检查队长权限 (Type 2 = 仅队长)
       if (storyType === 2 && !myRole.isLeader) {
         return { allowed: false, reason: '本任务仅限队长提交' };
       }
-      
-      // 团队任务类型 3：全员可提交
-      return { allowed: true, reason: '' };
     }
-    
-    // 默认允许
+
+    // 5. 全部关卡通过，允许提交
     return { allowed: true, reason: '' };
   };
 

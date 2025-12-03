@@ -13,7 +13,16 @@ export function getCourseTeams(courseId) {
 
 // 创建团队
 export function createTeam(courseId, data) {
-  return request.post(`/api/teams/course/${courseId}`, data);
+  return request.post(`/api/teams/course/${courseId}`, {
+    group_name: data.groupName, // 前端传 groupName, 转为后端 group_name
+    max_size: data.maxSize
+  });
+}
+
+export function joinTeamByCode(code) {
+  return request.post('/api/teams/join-by-code', { 
+    inviteCode: code // 后端接收字段名为 inviteCode
+  });
 }
 
 // 加入团队
