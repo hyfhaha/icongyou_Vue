@@ -1,9 +1,11 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { login as loginApi } from '@/api/auth';
-import { getCurrentUser } from '@/api/user';
+
 // [新增] 引入课程接口用于计算统计数据
 import { getCourseList } from '@/api/course';
+import { getCurrentUser, updateUserProfile } from '@/api/user';
+import RequestConfig from '@/utils/request'; // [新增] 用于获取 baseURL
 
 const createEmptyUser = () => ({
   id: null,
@@ -157,6 +159,59 @@ const fetchGlobalStats = async () => {
       throw error;
     }
   };
+  
+  // [新增] 上传并更新头像 Action
+    const updateAvatar = async (filePath) => {
+      if (!token.value) throw new Error('未登录');
+  
+      return new Promise((resolve, reject) => {
+        // 1. 使用 uni.uploadFile 上传图片
+        // 注意：uni.uploadFile 不走 request 拦截器，需要手动加 Header
+        // 假设 RequestConfig.baseUrl 是你的 API 根地址 (如 http://localhost:3000)
+        const uploadUrl = (RequestConfig.baseUrl || '').replace(/\/$/, '') + '/api/upload/avatar';
+        
+        uni.uploadFile({
+          url: uploadUrl, 
+          filePath: filePath,
+          name: 'file', // 后端 multer 配置接收的字段名
+          header: {
+            'Authorization': 'Bearer ' + token.value // 必须携带 Token
+          },
+          success: async (uploadRes) => {
+            try {
+              // uni.uploadFile 返回的 data 是字符串，需要解析
+              const result = JSON.parse(uploadRes.data);
+              
+              if (uploadRes.statusCode !== 200 && uploadRes.statusCode !== 201) {
+                throw new Error(result.message || '上传失败');
+              }
+  
+              // 2. 拿到后端返回的图片地址 (result.url)
+              const newAvatarUrl = result.url;
+              console.log('图片上传成功:', newAvatarUrl);
+  
+              // 3. 调用 API 更新用户数据库资料
+              await updateUserProfile({ avatar_url: newAvatarUrl });
+  
+              // 4. 更新本地状态和缓存
+              userInfo.value.avatarUrl = newAvatarUrl;
+              // 这是一个小技巧：给 URL 加时间戳防止前端缓存旧图
+              // 注意：存库时存纯净 URL，显示时前端组件负责加时间戳，或者在这里存也行
+              // 这里我们存纯净 URL
+              
+              uni.setStorageSync('userInfo', userInfo.value);
+              
+              resolve(newAvatarUrl);
+            } catch (e) {
+              reject(e);
+            }
+          },
+          fail: (err) => {
+            reject(new Error('网络请求失败: ' + err.errMsg));
+          }
+        });
+      });
+    };
 
   return {
     userInfo,
@@ -167,6 +222,7 @@ const fetchGlobalStats = async () => {
     logout,
     checkLoginStatus,
     fetchGlobalStats, // 导出
-    refreshProfile
+    refreshProfile,
+	updateAvatar
   };
 });

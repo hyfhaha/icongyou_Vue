@@ -2,9 +2,10 @@
 	<view class="profile-page">
 		<view class="header-bg">
 			<view class="profile-header">
-				<view class="avatar-wrapper">
+				<view class="avatar-wrapper"@click="handleAvatarClick">
 					<image 
 						v-if="avatarSrc" 
+						:key="avatarTimestamp"
 						:src="avatarSrc" 
 						class="avatar-img" 
 						mode="aspectFill" 
@@ -113,7 +114,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed,ref } from 'vue';
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app';
 import { storeToRefs } from 'pinia';
 import { useAuthStore } from '@/store/authStore';
@@ -124,18 +125,55 @@ const settingsStore = useSettingsStore();
 const authStore = useAuthStore();
 const { userInfo, userStats } = storeToRefs(authStore);
 
+const avatarTimestamp = ref(Date.now());
+
 // 头像地址处理：后端返回 /uploads/... 时，拼接服务器 BaseURL
 const avatarSrc = computed(() => {
   const raw = userInfo.value?.avatarUrl;
   if (!raw) return '';
-  // 已经是完整 http(s) 地址，直接使用
-  if (/^https?:\/\//i.test(raw)) {
-    return raw;
+  
+  let finalUrl = raw;
+  // 如果不是完整 http 地址，拼接 BaseURL
+  if (!/^https?:\/\//i.test(raw)) {
+    const base = RequestConfig.baseUrl.replace(/\/$/, '');
+    const path = String(raw).startsWith('/') ? raw : `/${raw}`;
+    finalUrl = base + path;
   }
-  const base = RequestConfig.baseUrl.replace(/\/$/, '');
-  const path = String(raw).startsWith('/') ? raw : `/${raw}`;
-  return base + path;
+  
+  // 加上时间戳参数，解决上传后图片不刷新的问题
+  return `${finalUrl}?t=${avatarTimestamp.value}`;
 });
+
+const handleAvatarClick = () => {
+    uni.chooseImage({
+        count: 1,
+        sizeType: ['compressed'], // 建议使用压缩图
+        sourceType: ['album', 'camera'],
+        success: async (res) => {
+            const tempFilePath = res.tempFilePaths[0];
+            
+            uni.showLoading({ title: '正在上传...' });
+            
+            try {
+                // 调用 Store 中的 Action
+                await authStore.updateAvatar(tempFilePath);
+                
+                // 更新时间戳，强制视图刷新
+                avatarTimestamp.value = Date.now();
+                
+                uni.hideLoading();
+                uni.showToast({ title: '头像修改成功', icon: 'success' });
+            } catch (err) {
+                uni.hideLoading();
+                console.error(err);
+                uni.showToast({ 
+                    title: err.message || '上传失败', 
+                    icon: 'none' 
+                });
+            }
+        }
+    });
+};
 
 const ensureAuthAndStats = async () => {
   try {
@@ -259,6 +297,18 @@ $shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	background-color: $bg-color;
 	display: flex;
 	flex-direction: column;
+}
+
+.avatar-wrapper {
+    /* ... 原有样式 ... */
+    position: relative;
+    flex-shrink: 0;
+    
+    /* [新增] 点击时的反馈效果 */
+    &:active {
+        opacity: 0.8;
+        transform: scale(0.98);
+    }
 }
 
 .header-bg {
