@@ -342,29 +342,83 @@ const pieChartOpts = computed(() => {
 });
 
 // [修改] 实现真实文件选择
+// 修改 SubmissionView.vue 中的 handleFileSelect
+
 const handleFileSelect = () => {
+  // #ifdef H5
+  // H5 端继续使用 uni.chooseFile (因为它支持选 PDF/Doc)
   uni.chooseFile({
-    count: 1, // 暂时只支持单文件上传
-    // extension: taskInfo.value.allowedTypes, // H5端不支持此参数，为保证兼容性，暂时注释
+    count: 1,
     success: (res) => {
       const tempFile = res.tempFiles[0];
-      if (tempFile) {
-        // 检查文件大小
+      processSelectedFile(tempFile); // 抽离处理逻辑
+    },
+    fail: (err) => console.log('H5选择失败', err)
+  });
+  // #endif
+
+  // #ifndef H5
+  // 非 H5 端 (App/小程序)
+  // 尝试调用 uni.chooseMessageFile (微信小程序) 或 uni.chooseImage (App兜底)
+  
+  // 微信小程序
+  // #ifdef MP-WEIXIN
+  uni.chooseMessageFile({
+    count: 1,
+    type: 'file',
+    success: (res) => {
+      processSelectedFile(res.tempFiles[0]);
+    }
+  });
+  // #endif
+
+  // App 端 (手机真机)
+  // 由于 uni.chooseFile 在部分基座不可用，先用 chooseImage 兜底
+  // 如果你需要选 PDF，必须引入插件 (如 LFile)
+  // 这里暂时演示用 chooseImage，至少能让你点得动
+  // #ifdef APP-PLUS
+  uni.chooseImage({
+    count: 1,
+    sourceType: ['album'], // 从相册选
+    success: (res) => {
+      // 图片也是文件，构造一个 file 对象
+      const tempFile = {
+        name: `image_${Date.now()}.jpg`, // 自动生成文件名
+        path: res.tempFilePaths[0],
+        size: res.tempFiles[0].size
+      };
+      processSelectedFile(tempFile);
+    },
+    fail: (err) => {
+        // 如果想尝试强行调用 chooseFile (万一基座支持)
+        try {
+            uni.chooseFile({
+                count: 1,
+                success: (r) => processSelectedFile(r.tempFiles[0]),
+                fail: (e) => uni.showToast({ title: '当前环境不支持选文件', icon: 'none' })
+            });
+        } catch (e) {
+            uni.showToast({ title: '仅支持上传图片', icon: 'none' });
+        }
+    }
+  });
+  // #endif
+  // #endif
+};
+
+// 抽离公共处理逻辑
+const processSelectedFile = (tempFile) => {
+    if (tempFile) {
         if (taskInfo.value.maxFileSize && tempFile.size > taskInfo.value.maxFileSize * 1024 * 1024) {
             uni.showToast({ title: `文件大小不能超过 ${taskInfo.value.maxFileSize}MB`, icon: 'none' });
             return;
         }
         subStore.addFile({
-          name: tempFile.name,
-          size: tempFile.size,
-          tempFilePath: tempFile.path // uni-app 编译时会处理平台差异，H5用path，原生用tempFilePath
+            name: tempFile.name,
+            size: tempFile.size,
+            tempFilePath: tempFile.path
         });
-      }
-    },
-    fail: (err) => {
-        console.log('选择文件失败', err);
     }
-  });
 };
 
 const formatFileSize = (bytes) => {

@@ -48,7 +48,7 @@
 						</view>
 						<view class="stat-content">
 							<text class="stat-value">{{ pendingTasksCount }}</text>
-							<text class="stat-label">进行中</text>
+							<text class="stat-label">待完成</text>
 				</view>
 					</view>
 					<view class="stat-item">

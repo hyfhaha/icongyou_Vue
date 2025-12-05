@@ -72,27 +72,36 @@
 					</view>
 					<view class="info-item">
 						<text class="info-label">任务总分</text>
-						<text class="info-value">{{ currentTask.totalScore || 0 }}</text>
+						<text class="info-value">{{ currentTask.totalScore || 0 }}分</text>
 					</view>
 					<view class="info-item">
 						<text class="info-label">提交限制</text>
-						<text class="info-value">1次</text>
+						<text class="info-value">{{ currentTask.myWork ? '0/1 (已提交)' : '1/1' }}</text>
 					</view>
 					<view class="info-item">
 						<text class="info-label">是否必做</text>
-						<text class="info-value" style="color: #2ECC71;">是</text>
+						<text 
+							class="info-value" 
+							:style="{ color: currentTask.required ? '#2ECC71' : '#95A5A6' }"
+						>
+							{{ currentTask.required ? '是' : '否 (选做)' }}
+						</text>
 					</view>
 					<view class="info-item">
 						<text class="info-label">作业性质</text>
-						<text class="info-value">任务剧团队内提交</text>
+						<text class="info-value">
+							{{ currentTask.storyType === 1 ? '个人独立完成' : '团队协作任务' }}
+						</text>
 					</view>
 					<view class="info-item">
 						<text class="info-label">开始时间</text>
-						<text class="info-value">未设定</text>
+						<text class="info-value">
+							{{ formatTime(currentTask.startTime || currentTask.start_time) || '即时开启' }}
+						</text>
 					</view>
 					<view class="info-item">
-						<text class="info-label">任务解锁</text>
-						<text class="info-value">不上锁</text>
+						<text class="info-label">前置要求</text>
+						<text class="info-value">无</text>
 					</view>
 				</view>
 			</view>
@@ -609,43 +618,89 @@ const downloadInBrowser = (fileUrl, fileName) => {
 };
 
 // App 端下载并保存到 @downloads 目录
+// TaskDetailView.vue
+
 const downloadToAppDownloads = (fileUrl, fileName) => {
-	/* #ifdef APP-PLUS */
-	if (typeof plus === 'undefined' || !fileUrl) {
-		uni.showToast({ title: '当前环境不支持保存', icon: 'none' });
-		return;
-	}
-	try {
-		uni.showLoading({ title: '正在下载...' });
-		const downloadTask = plus.downloader.createDownload(
-			fileUrl,
-			{ filename: `@downloads/${fileName}` },
-			(download, status) => {
-				uni.hideLoading();
-				if (status === 200) {
-					// 解析本地路径给用户提示
-					plus.io.resolveLocalFileSystemURL(
-						download.filename,
-						(entry) => {
-							uni.showToast({ title: `已保存: ${entry.name}`, icon: 'none' });
-						},
-						() => {
-							uni.showToast({ title: '已保存到下载文件夹', icon: 'none' });
-						}
-					);
-				} else {
-					console.error('下载失败，状态码:', status);
-					uni.showToast({ title: '下载失败', icon: 'none' });
-				}
-			}
-		);
-		downloadTask.start();
-	} catch (err) {
-		uni.hideLoading();
-		console.error('App 保存失败', err);
-		uni.showToast({ title: '保存失败', icon: 'none' });
-	}
-	/* #endif */
+    /* #ifdef APP-PLUS */
+    console.log('[App下载] 启动，目标:', fileUrl);
+
+    if (typeof plus === 'undefined' || !fileUrl) {
+        uni.showToast({ title: '当前环境不支持保存', icon: 'none' });
+        return;
+    }
+
+    try {
+        uni.showLoading({ title: '正在下载...' });
+        
+        const downloadTask = plus.downloader.createDownload(
+            fileUrl,
+            { filename: `_downloads/${fileName}` }, 
+            (download, status) => {
+                uni.hideLoading();
+                console.log('[App下载] 回调状态码:', status);
+                
+                if (status === 200) {
+                    console.log('[App下载] 下载成功，路径:', download.filename);
+                    
+                    // 解析路径并打开
+                    plus.io.resolveLocalFileSystemURL(
+                        download.filename,
+                        (entry) => {
+                            const localUrl = entry.toLocalURL(); 
+                            console.log('[App下载] 转换本地路径:', localUrl);
+                            
+                            // [关键修复1] 提取文件后缀名 (去点，转小写)
+                            // 例如 "test.docx" -> "docx"
+                            //const fileType = fileName.split('.').pop().toLowerCase();
+							// 1. 提取原始后缀
+							let fileType = fileName.split('.').pop().toLowerCase();
+							        
+							// [关键修改] 针对 MD 文件进行特殊映射
+							// 告诉安卓系统：MD 文件就是 TXT，请用文本编辑器打开它
+							if (fileType === 'md') {
+							    fileType = 'txt';
+							}
+							
+                            console.log('[App下载] 识别文件类型:', fileType);
+
+                            uni.showToast({ title: '下载成功，正在打开...', icon: 'success' });
+                            
+                            setTimeout(() => {
+                                // 尝试方案 A: 标准 UniApp 打开
+                                uni.openDocument({
+                                    filePath: localUrl,
+                                    fileType: fileType, // [关键] 必须显式传这个，手机才知道推荐 Word/WPS
+                                    showMenu: true,
+                                    success: () => console.log('uni.openDocument 打开成功'),
+                                    fail: (err) => {
+                                        console.warn('uni.openDocument 失败，尝试系统原生打开:', err);
+                                        
+                                        // [关键修复2] 备用方案 B: H5+ 原生打开 (通常这个更灵，弹出的APP更多)
+                                        plus.runtime.openFile(localUrl, {}, (e) => {
+                                            console.error('系统原生打开也失败:', e);
+                                            uni.showToast({ title: '没有找到能打开此文件的应用', icon: 'none' });
+                                        });
+                                    }
+                                });
+                            }, 500);
+                        },
+                        (err) => {
+                            console.error('读取本地文件失败:', err);
+                            uni.showToast({ title: '文件保存成功但读取失败', icon: 'none' });
+                        }
+                    );
+                } else {
+                    uni.showToast({ title: '下载失败', icon: 'none' });
+                }
+            }
+        );
+        downloadTask.start();
+    } catch (err) {
+        uni.hideLoading();
+        console.error('App 保存失败', err);
+        uni.showToast({ title: '保存失败', icon: 'none' });
+    }
+    /* #endif */
 };
 
 // 点击历史提交中的文件，下载并打开，保持原始后缀类型
@@ -730,7 +785,7 @@ const handleMaterialClick = (material) => {
 	const fileName = sanitizeFileName(rawFileName);
 	const originUrl = buildAbsoluteUrl(material.originPath || `/uploads/materials/${fileName}`);
 	const fileUrl = buildDownloadUrl(originUrl);
-
+	console.log('准备下载的地址:', fileUrl);
 	if (!fileUrl) {
 		uni.showToast({ title: '文件地址不存在', icon: 'none' });
 		return;

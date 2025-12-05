@@ -188,7 +188,8 @@ export const useCourseContextStore = defineStore('courseContext', () => {
     permission: null,
     myWork: null,
     materials: [],
-    viewCount: 0
+    viewCount: 0,
+	required: true
   });
 
   const currentTaskAnalytics = ref({
@@ -474,6 +475,7 @@ export const useCourseContextStore = defineStore('courseContext', () => {
       totalScore: story.total_score ?? story.totalScore ?? 0,
       deadline: story.end_time || story.deadline || '',
       status: deriveTaskStatus(story),
+	  required: story.required !== 0,
       storyType: story.story_type ?? story.storyType ?? 1,
       permission: detail.permission || null,
       myWork: detail.myWork || null,

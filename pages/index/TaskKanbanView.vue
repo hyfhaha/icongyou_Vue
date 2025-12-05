@@ -592,7 +592,7 @@ display: flex;
 /* 状态颜色 */
 .mini-node:active { opacity: 0.6; }
 .mini-node.completed { background: #2ECC71; }
-.mini-node.submitted { background: #4C8AF2; }
+.mini-node.submitted { background: #f2b230; }
 .mini-node.in-progress { background: #4C8AF2; }
 .mini-node.upcoming { background: #E0E0E0; color: #AAA; }
 .mini-node.overdue { background: #E74C3C; }

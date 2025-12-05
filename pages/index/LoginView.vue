@@ -19,11 +19,11 @@
 				<text class="card-title">登录账户</text>
 				
 				<view class="form-item">
-					<text class="form-label">学号</text>
+					<text class="form-label">账号</text>
 					<input
 						v-model="loginForm.studentId"
 						type="text"
-						placeholder="请输入学号"
+						placeholder="请输入账号"
 						class="form-input"
 					/>
 				</view>
